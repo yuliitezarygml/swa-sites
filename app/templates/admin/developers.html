@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Developers{% endblock %}
+
+{% block content %}
+<div class="admin-container">
+    <h1>Manage Developers</h1>
+    
+    <div class="admin-actions">
+        <a href="{{ url_for('add_developer') }}" class="button">Add New Developer</a>
+    </div>
+
+    <div class="developers-grid">
+        {% for dev in developers %}
+        <div class="developer-card">
+            <div class="developer-avatar">
+                <img src="{{ dev.avatar or url_for('static', filename='default-avatar.png') }}" alt="{{ dev.name }}">
+            </div>
+            <div class="developer-info">
+                <h3>{{ dev.name }}</h3>
+                <p class="role">{{ dev.role }}</p>
+                <div class="discord-tag">
+                    <i class="fab fa-discord"></i>
+                    <span>{{ dev.discord }}</span>
+                </div>
+                <p class="description">{{ dev.description }}</p>
+                <div class="admin-controls">
+                    <a href="{{ url_for('edit_developer', id=dev.id) }}" class="button edit">Edit</a>
+                    <button onclick="deleteDeveloper({{ dev.id }})" class="button delete">Delete</button>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+/* Используем те же стили, что и в developers.html, добавляем стили для кнопок */
+.admin-actions {
+    margin-bottom: 20px;
+}
+
+.button {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.3s;
+}
+
+.button.edit {
+    background: #ff4500;
+    color: white;
+}
+
+.button.delete {
+    background: #dc3545;
+    color: white;
+}
+
+.admin-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+</style>
+
+<script>
+function deleteDeveloper(id) {
+    if (confirm('Are you sure you want to delete this developer?')) {
+        fetch(`/admin/developers/delete/${id}`, {
+            method: 'POST'
+        }).then(response => {
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Error deleting developer');
+            }
+        });
+    }
+}
+</script>
+{% endblock %} 

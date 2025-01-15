@@ -134,3 +134,11 @@ class Statistics:
     def get_total_visits():
         stats = Statistics.load_stats()
         return stats.get("total_visits", 0) 
+
+class Developer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    role = db.Column(db.String(100))
+    discord = db.Column(db.String(100))
+    avatar = db.Column(db.String(500))
+    description = db.Column(db.Text) 

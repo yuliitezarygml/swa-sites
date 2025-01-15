@@ -8,7 +8,7 @@ import json
 from werkzeug.security import generate_password_hash
 
 # Создаем экземпляр Flask
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
 app.config.from_object(Config)
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'

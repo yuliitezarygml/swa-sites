@@ -1,6 +1,6 @@
 from flask import jsonify, send_file, abort, request, render_template, redirect, url_for, flash, session
 from app import app, db
-from app.models import Game, LauncherGame, ActiveUsers, User, Statistics
+from app.models import Game, LauncherGame, ActiveUsers, User, Statistics, Developer
 import os
 import json
 from datetime import datetime
@@ -453,3 +453,111 @@ def edit_file_content(filepath):
     except Exception as e:
         flash(f'Error reading file: {str(e)}', 'error')
         return redirect(url_for('file_browser')) 
+
+@app.route('/developers')
+def developers():
+    # Получаем разработчиков из базы данных вместо хардкода
+    developers = Developer.query.all()
+    return render_template('developers.html', developers=developers)
+
+@app.route('/admin/developers', methods=['GET'])
+@admin_required
+def admin_developers():
+    developers = Developer.query.all()
+    return render_template('admin/developers.html', developers=developers)
+
+# Обновляем константы
+UPLOAD_FOLDER = os.path.join('app', 'static', 'avatars')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+
+# Создаем папку для аватаров, если её нет
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/admin/developers/edit/<int:id>', methods=['GET', 'POST'])
+@admin_required
+def edit_developer(id):
+    developer = Developer.query.get_or_404(id)
+    
+    if request.method == 'POST':
+        developer.name = request.form['name']
+        developer.role = request.form['role']
+        developer.discord = request.form['discord']
+        developer.description = request.form['description']
+        
+        # Обработка загрузки нового аватара
+        avatar_file = request.files.get('avatar')
+        if avatar_file and avatar_file.filename:
+            if allowed_file(avatar_file.filename):
+                # Удаляем старый аватар если он существует
+                if developer.avatar:
+                    old_avatar_path = os.path.join(app.root_path, 'static', 'avatars', os.path.basename(developer.avatar))
+                    if os.path.exists(old_avatar_path):
+                        os.remove(old_avatar_path)
+                
+                # Сохраняем новый аватар
+                filename = secure_filename(f"{uuid.uuid4()}{os.path.splitext(avatar_file.filename)[1]}")
+                avatar_path = os.path.join(UPLOAD_FOLDER, filename)
+                avatar_file.save(avatar_path)
+                developer.avatar = f"/static/avatars/{filename}"
+                
+                print(f"Saved avatar to: {avatar_path}")  # Для отладки
+            else:
+                flash('Invalid file type. Allowed types are: png, jpg, jpeg, gif, webp', 'error')
+                return redirect(url_for('edit_developer', id=id))
+        
+        db.session.commit()
+        flash('Developer updated successfully!', 'success')
+        return redirect(url_for('developers'))
+    
+    return render_template('admin/edit_developer.html', developer=developer)
+
+@app.route('/admin/developers/add', methods=['GET', 'POST'])
+@admin_required
+def add_developer():
+    if request.method == 'POST':
+        avatar_file = request.files.get('avatar')
+        avatar_path = None
+        
+        if avatar_file and avatar_file.filename:
+            if allowed_file(avatar_file.filename):
+                filename = secure_filename(f"{uuid.uuid4()}{os.path.splitext(avatar_file.filename)[1]}")
+                avatar_file.save(os.path.join(UPLOAD_FOLDER, filename))
+                avatar_path = f"/static/avatars/{filename}"
+            else:
+                flash('Invalid file type. Allowed types are: png, jpg, jpeg, gif, webp', 'error')
+                return redirect(url_for('add_developer'))
+        
+        developer = Developer(
+            name=request.form['name'],
+            role=request.form['role'],
+            discord=request.form['discord'],
+            description=request.form['description'],
+            avatar=avatar_path
+        )
+        
+        db.session.add(developer)
+        db.session.commit()
+        flash('Developer added successfully!', 'success')
+        return redirect(url_for('developers'))
+        
+    return render_template('admin/edit_developer.html', developer=None)
+
+@app.route('/admin/developers/delete/<int:id>', methods=['POST'])
+@admin_required
+def delete_developer(id):
+    developer = Developer.query.get_or_404(id)
+    
+    # Удаляем аватар
+    if developer.avatar:
+        avatar_path = os.path.join(app.root_path, developer.avatar.lstrip('/'))
+        if os.path.exists(avatar_path):
+            os.remove(avatar_path)
+    
+    db.session.delete(developer)
+    db.session.commit()
+    flash('Developer deleted successfully!', 'success')
+    return redirect(url_for('admin_developers')) 

@@ -2,12 +2,14 @@
 <html>
 <head>
     <title>{% block title %}SWA Game Service{% endblock %}</title>
+    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='lightcloud.ico') }}">
     <style>
         body {
             font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            background: #f0f2f5;
+            background: #1a1a1a;
+            color: #fff;
         }
         .navbar {
             background: #333;
@@ -43,11 +45,12 @@
             padding: 20px;
         }
         .card {
-            background: white;
+            background: #2a2a2a;
             border-radius: 8px;
             padding: 20px;
             margin-bottom: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            border: 1px solid #333;
         }
         .button {
             display: inline-block;
@@ -106,6 +109,7 @@
             <div class="nav-links">
                 <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Home</a>
                 <a href="{{ url_for('gamelist') }}" {% if request.endpoint == 'gamelist' %}class="active"{% endif %}>Game List</a>
+                <a href="{{ url_for('developers') }}" {% if request.endpoint == 'developers' %}class="active"{% endif %}>Developers</a>
                 {% if current_user.is_authenticated and current_user.is_admin %}
                     <a href="{{ url_for('admin_games') }}" {% if request.endpoint == 'admin_games' %}class="active"{% endif %}>Admin Panel</a>
                     <a href="{{ url_for('file_browser') }}" {% if request.endpoint == 'file_browser' %}class="active"{% endif %}>
