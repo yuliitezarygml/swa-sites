@@ -6,9 +6,11 @@ from app.config import Config
 import os
 import json
 from werkzeug.security import generate_password_hash
+import logging
+from logging.handlers import RotatingFileHandler
 
 # Создаем экземпляр Flask
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__)
 app.config.from_object(Config)
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
@@ -47,3 +49,15 @@ if not os.path.exists(base_file):
 # Создаем все таблицы
 with app.app_context():
     db.create_all() 
+
+if not app.debug:
+    if not os.path.exists('logs'):
+        os.mkdir('logs')
+    file_handler = RotatingFileHandler('logs/swa_game_service.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
+    ))
+    file_handler.setLevel(logging.INFO)
+    app.logger.addHandler(file_handler)
+    app.logger.setLevel(logging.INFO)
+    app.logger.info('SWA Game Service startup') 

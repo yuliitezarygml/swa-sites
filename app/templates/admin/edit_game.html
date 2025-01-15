@@ -1,251 +1,83 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="edit-container">
-    <h1>{{ 'Edit' if game else 'Add' }} Game</h1>
-
-    <form method="POST" enctype="multipart/form-data" class="edit-form">
-        <div class="form-group">
-            <label>Name:</label>
-            <input type="text" name="name" value="{{ game.name if game else '' }}" required>
-        </div>
-
+<div class="card">
+    <h1>Edit Game</h1>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }}">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <form method="POST">
         <div class="form-group">
             <label>Game ID:</label>
-            <input type="text" name="game_id" value="{{ game.game_id if game else '' }}" required>
+            <input type="text" name="game_id" value="{{ game.game_id }}" required>
         </div>
-
+        
         <div class="form-group">
-            <label>Release Date:</label>
-            <input type="date" name="release_date" value="{{ game.release_date if game else '' }}">
+            <label>Name:</label>
+            <input type="text" name="name" value="{{ game.name }}" required>
         </div>
-
+        
         <div class="form-group">
-            <label>Developer:</label>
-            <input type="text" name="developer" value="{{ game.developer if game else '' }}">
+            <label>DLC IDs (one per line):</label>
+            <textarea name="dlc[]" rows="5">{% if game.dlc %}{{ '\n'.join(json.loads(game.dlc)) }}{% endif %}</textarea>
         </div>
-
-        <div class="form-group">
-            <label>Platforms:</label>
-            <div class="platform-checkboxes">
-                <label>
-                    <input type="checkbox" name="windows" {% if game and game.windows %}checked{% endif %}>
-                    <i class="fab fa-windows"></i> Windows
-                </label>
-                <label>
-                    <input type="checkbox" name="mac" {% if game and game.mac %}checked{% endif %}>
-                    <i class="fab fa-apple"></i> MacOS
-                </label>
-                <label>
-                    <input type="checkbox" name="linux" {% if game and game.linux %}checked{% endif %}>
-                    <i class="fab fa-linux"></i> Linux
-                </label>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Game Image:</label>
-            <div class="image-upload">
-                <div class="image-preview">
-                    <img id="imagePreview" src="{{ game.image_path if game and game.image_path else url_for('static', filename='default-game.png') }}" alt="Game preview">
-                </div>
-                <div class="file-input-container">
-                    <input type="file" name="game_image" id="gameImage" accept="image/*" onchange="previewImage(this)">
-                    <label for="gameImage" class="file-input-label">
-                        <i class="fas fa-upload"></i> Choose Image
-                    </label>
-                    <span id="fileName">No file chosen</span>
-                </div>
-            </div>
-        </div>
-
-        <div class="form-group">
-            <label>Game File (GameID):</label>
-            <div class="file-input-container">
-                <input type="file" name="gameid_file" id="gameidFile" accept=".zip">
-                <label for="gameidFile" class="file-input-label">
-                    <i class="fas fa-upload"></i> Upload GameID File
-                </label>
-                <span id="gameidFileName">No file chosen</span>
-            </div>
-            {% if game.file_path %}
-                <p class="current-file">Current file: {{ game.file_path }}</p>
-            {% endif %}
-        </div>
-
-        <div class="form-actions">
-            <button type="submit" class="button">Save Changes</button>
-            <a href="{{ url_for('gamelist') }}" class="button button-secondary">Cancel</a>
-        </div>
+        
+        <button type="submit" class="button">Save Changes</button>
+        <a href="{{ url_for('admin_games') }}" class="button button-secondary">Cancel</a>
     </form>
 </div>
 
 <style>
-.edit-container {
-    max-width: 800px;
-    margin: 20px auto;
-    padding: 20px;
-    background: #2a2a2a;
-    border-radius: 8px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.form-group {
-    margin-bottom: 20px;
-}
-
-.form-group label {
-    display: block;
-    margin-bottom: 5px;
-    color: #fff;
-}
-
-.form-group input[type="text"],
-.form-group input[type="date"] {
-    width: 100%;
-    padding: 8px;
-    border: 1px solid #444;
-    background: #333;
-    color: #fff;
-    border-radius: 4px;
-}
-
-.platform-checkboxes {
-    display: flex;
-    gap: 20px;
-}
-
-.platform-checkboxes label {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    cursor: pointer;
-}
-
-.image-upload {
-    margin-top: 10px;
-}
-
-.image-preview {
-    width: 100%;
-    height: 300px;
-    border-radius: 8px;
-    overflow: hidden;
-    background: #1a1a1a;
-    margin-bottom: 10px;
-}
-
-.image-preview img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: center;
-}
-
-.file-input-container {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.file-input-container input[type="file"] {
-    display: none;
-}
-
-.file-input-label {
-    background: #ff4500;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.file-input-label:hover {
-    background: #cc3700;
-}
-
-#fileName {
-    color: #888;
-}
-
-.button {
-    display: inline-block;
-    padding: 10px 20px;
-    background: #ff4500;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    text-decoration: none;
-}
-
-.button-secondary {
-    background: #666;
-}
-
-.form-actions {
-    display: flex;
-    gap: 10px;
-    margin-top: 20px;
-}
-
-.file-input-container {
-    margin-top: 10px;
-}
-
-.file-input-label {
-    background: #ff4500;
-    color: white;
-    padding: 8px 15px;
-    border-radius: 4px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.file-input-label:hover {
-    background: #cc3700;
-}
-
-#gameidFileName {
-    margin-left: 10px;
-    color: #888;
-}
-
-.current-file {
-    margin-top: 5px;
-    color: #888;
-    font-style: italic;
-}
-</style>
-
-<script>
-function previewImage(input) {
-    const preview = document.getElementById('imagePreview');
-    const fileNameSpan = document.getElementById('fileName');
-    
-    if (input.files && input.files[0]) {
-        const reader = new FileReader();
-        
-        reader.onload = function(e) {
-            preview.src = e.target.result;
-        }
-        
-        reader.readAsDataURL(input.files[0]);
-        fileNameSpan.textContent = input.files[0].name;
-    } else {
-        preview.src = "{{ url_for('static', filename='default-game.png') }}";
-        fileNameSpan.textContent = "No file chosen";
+    .form-group {
+        margin-bottom: 15px;
     }
-}
-
-document.getElementById('gameidFile').addEventListener('change', function(e) {
-    const fileName = e.target.files[0]?.name || 'No file chosen';
-    document.getElementById('gameidFileName').textContent = fileName;
-});
-</script>
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+    }
+    .form-group input[type="text"],
+    .form-group textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .button {
+        display: inline-block;
+        padding: 10px 15px;
+        background: #007bff;
+        color: white;
+        text-decoration: none;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-right: 10px;
+    }
+    .button-secondary {
+        background: #6c757d;
+    }
+    .alert {
+        padding: 10px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+    .alert-success {
+        background-color: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    .alert-error {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+    }
+</style>
 {% endblock %} 

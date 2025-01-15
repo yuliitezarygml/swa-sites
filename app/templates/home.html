@@ -1,190 +1,200 @@
 {% extends "base.html" %}
 
+{% block title %}SWA Game Service{% endblock %}
+
 {% block content %}
-<div class="main-container">
-    <!-- Header Section -->
-    <header class="header">
-        <h1 class="title">SWA V2</h1>
-        <p class="subtitle">Make the most of your Steam experience!</p>
-        <a href="{{ url_for('download_setup') }}" class="btn-download">DOWNLOAD</a>
-    </header>
+<div class="hero-section">
+    <h1 class="hero-title">SWA V2</h1>
+    <p class="hero-subtitle">Make the most of your Steam experience!</p>
+    <a href="#" class="download-button">DOWNLOAD</a>
+</div>
 
-    <!-- Screenshots Section -->
-    <div class="screenshots-container">
-        <div class="screenshot">
-            <img src="{{ url_for('static', filename='1.png') }}" alt="SWA V2">
+<div class="screenshots-section">
+    <div class="screenshots-grid">
+        <div class="screenshot-card">
+            <img src="{{ url_for('static', filename='1.png') }}" alt="SWA V2 LightCloud">
         </div>
-        <div class="screenshot">
-            <img src="{{ url_for('static', filename='2.png') }}" alt="SWA V2">
+        <div class="screenshot-card">
+            <img src="{{ url_for('static', filename='2.png') }}" alt="SWA V2 GameList">
         </div>
-        <div class="screenshot">
-            <img src="{{ url_for('static', filename='3.png') }}" alt="SWA V2">
-        </div>
-    </div>
-
-    <!-- Links Section -->
-    <div class="links-section">
-        <a href="#faq">FAQ</a>
-        <span class="separator">|</span>
-        <a href="#tos">TOS</a>
-    </div>
-
-    <!-- Stay Connected Section -->
-    <div class="connected-section">
-        <h2>Stay Connected!</h2>
-        <div class="social-links">
-            <a href="https://t.me/gfklightcloud" target="_blank" class="social-icon">
-                <i class="fab fa-telegram"></i>
-            </a>
-            <a href="https://discord.com/invite/Mt5hmVce2d" target="_blank" class="social-icon">
-                <i class="fab fa-discord"></i>
-            </a>
-        </div>
-    </div>
-
-    <!-- Footer Icons -->
-    <div class="footer-icons">
-        <div class="icon-container">
-            <i class="fas fa-globe"></i>
-        </div>
-        <div class="icon-container">
-            <i class="fas fa-clock"></i>
-        </div>
-        <div class="icon-container">
-            <i class="fas fa-users"></i>
-            <p class="copyright">© 2025 Varrows.online. All rights reserved.</p>
+        <div class="screenshot-card">
+            <img src="{{ url_for('static', filename='3.png') }}" alt="SWA V2 Tools">
         </div>
     </div>
 </div>
 
+<div class="tos-section">
+    <h2 class="tos-title">TOS | Terms Of Service</h2>
+    <div class="tos-content">
+        <p>By using SWA V2, you agree to the following terms:</p>
+        <ul>
+            <li>Content provided is for personal use only.</li>
+            <li>You may not redistribute any files downloaded from this site.</li>
+            <li>We are not responsible for any damages caused by the use of our platform.</li>
+        </ul>
+    </div>
+</div>
+
+<div class="social-links">
+    <a href="#" class="social-link">
+        <img src="{{ url_for('static', filename='icons/telegram.png') }}" alt="Telegram" style="width: 32px;">
+    </a>
+    <a href="#" class="social-link">
+        <img src="{{ url_for('static', filename='icons/discord.png') }}" alt="Discord" style="width: 38px;">
+    </a>
+</div>
+
+<div class="copyright">
+    © 2025 yuliitezary.recloud.com. All rights reserved.
+</div>
+
 <style>
-.main-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
+.hero-section {
     text-align: center;
+    padding: 60px 20px;
 }
 
-.header {
+.hero-title {
+    font-size: 4em;
+    color: #ff4500;
+    margin-bottom: 20px;
+    font-weight: bold;
+}
+
+.hero-subtitle {
+    font-size: 1.5em;
+    color: #888;
     margin-bottom: 40px;
 }
 
-.title {
-    font-size: 48px;
-    color: #ff5f1f;
-    margin-bottom: 10px;
-}
-
-.subtitle {
-    font-size: 18px;
-    color: #ccc;
-    margin-bottom: 30px;
-}
-
-.btn-download {
+.download-button {
     display: inline-block;
     padding: 15px 40px;
-    background-color: #ff5f1f;
+    background: #ff4500;
     color: white;
     text-decoration: none;
     border-radius: 5px;
+    font-size: 1.2em;
     font-weight: bold;
-    transition: background-color 0.3s;
+    transition: all 0.3s ease;
 }
 
-.btn-download:hover {
-    background-color: #e54e1c;
+.download-button:hover {
+    background: #ff5722;
+    transform: translateY(-2px);
 }
 
-.screenshots-container {
-    display: flex;
-    justify-content: center;
+.screenshots-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
-    margin-bottom: 40px;
+    margin: 40px 0;
+    padding: 0 20px;
 }
 
-.screenshot {
-    flex: 0 1 350px;
-    border: 2px solid #ff5f1f;
+.screenshot-card {
+    position: relative;
+    background: #1e1e1e;
     border-radius: 8px;
     overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    transition: all 0.3s ease;
+    border: 1px solid #333;
 }
 
-.screenshot img {
+.screenshot-card:hover {
+    transform: scale(1.05);
+    z-index: 1;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.4);
+}
+
+.screenshot-card img {
     width: 100%;
     height: auto;
     display: block;
 }
 
-.links-section {
-    margin: 30px 0;
-}
-
-.links-section a {
+.tos-section {
+    text-align: center;
+    padding: 20px;
     color: #fff;
-    text-decoration: none;
-    margin: 0 15px;
-    font-size: 18px;
+    max-width: 800px;
+    margin: 0 auto;
 }
 
-.separator {
-    color: #666;
+.tos-title {
+    color: #ff4500;
+    font-size: 1.8em;
+    margin-bottom: 15px;
+    font-weight: 500;
 }
 
-.connected-section {
-    margin: 40px 0;
+.tos-content {
+    margin: 0 auto;
+    line-height: 1.5;
 }
 
-.connected-section h2 {
-    color: #ff5f1f;
-    margin-bottom: 20px;
+.tos-content p {
+    margin-bottom: 12px;
+    color: #ccc;
+    font-size: 0.95em;
+}
+
+.tos-content ul {
+    list-style: none;
+    padding: 0;
+}
+
+.tos-content li {
+    margin: 8px 0;
+    color: #ccc;
+    font-size: 0.95em;
 }
 
 .social-links {
     display: flex;
     justify-content: center;
-    gap: 20px;
-}
-
-.social-icon {
-    color: #fff;
-    font-size: 24px;
-    transition: color 0.3s;
-}
-
-.social-icon:hover {
-    color: #ff5f1f;
-}
-
-.footer-icons {
-    display: flex;
-    justify-content: space-between;
     align-items: center;
-    margin-top: 60px;
-    padding-top: 20px;
-    border-top: 1px solid #333;
+    gap: 15px;
+    margin: 20px 0;
 }
 
-.icon-container {
+.social-link {
     display: flex;
     align-items: center;
-    gap: 10px;
-    color: #666;
+    justify-content: center;
+}
+
+.social-link img {
+    transition: all 0.3s ease;
+    opacity: 0.9;
+}
+
+.social-link:hover img {
+    transform: scale(1.1);
+    opacity: 1;
 }
 
 .copyright {
-    margin-left: 10px;
-    font-size: 14px;
+    text-align: center;
+    color: #666;
+    padding: 15px;
+    font-size: 0.85em;
 }
 
+/* Медиа-запросы для адаптивности */
 @media (max-width: 768px) {
-    .screenshots-container {
-        flex-direction: column;
-        align-items: center;
+    .tos-title {
+        font-size: 1.5em;
     }
-
-    .screenshot {
-        max-width: 100%;
+    
+    .tos-content p,
+    .tos-content li {
+        font-size: 0.9em;
+    }
+    
+    .social-link img {
+        width: 28px;
     }
 }
 </style>

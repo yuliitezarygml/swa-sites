@@ -8,8 +8,8 @@ import os
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    game_id = db.Column(db.String(100), unique=True, nullable=False)
-    release_date = db.Column(db.String(100))
+    game_id = db.Column(db.String(20), unique=True, nullable=False)
+    release_date = db.Column(db.String(50))
     developer = db.Column(db.String(100))
     path = db.Column(db.String(200))
     dlc = db.Column(db.Text)
@@ -20,7 +20,6 @@ class Game(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     file_path = db.Column(db.String(500))
     description = db.Column(db.Text)
-    image_path = db.Column(db.String(500))
     
 class LauncherGame(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -135,19 +134,3 @@ class Statistics:
     def get_total_visits():
         stats = Statistics.load_stats()
         return stats.get("total_visits", 0) 
-
-class Developer(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
-    role = db.Column(db.String(100))
-    discord = db.Column(db.String(100))
-    avatar = db.Column(db.String(500))
-    description = db.Column(db.Text) 
-
-class FileComment(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    file_path = db.Column(db.String(500), nullable=False)
-    comment = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    user = db.relationship('User', backref='file_comments') 

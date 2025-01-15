@@ -1,6 +1,6 @@
-from flask import jsonify, send_file, abort, request, render_template, redirect, url_for, flash, session, send_from_directory
+from flask import jsonify, send_file, abort, request, render_template, redirect, url_for, flash, session
 from app import app, db
-from app.models import Game, LauncherGame, ActiveUsers, User, Statistics, Developer, FileComment
+from app.models import Game, LauncherGame, ActiveUsers, User, Statistics
 import os
 import json
 from datetime import datetime
@@ -10,6 +10,9 @@ import uuid
 from flask_login import login_user, logout_user, login_required, current_user
 from functools import wraps
 from pathlib import Path
+from flask_caching import Cache
+
+cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
 # Добавляем фильтр dirname
 @app.template_filter('dirname')
@@ -113,16 +116,12 @@ def get_launcher():
     return jsonify(launcher_data)
 
 @app.route('/api/stats')
+@cache.cached(timeout=60)  # Кэшируем на 60 секунд
 def get_stats():
     stats = {
-        "daily_users": 275,
-        "online_users": 6,
-        "total_users": 1434,
-        "last_reset": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "next_reset": {
-            "next_reset_at": (datetime.now()).strftime("%Y-%m-%d %H:%M:%S"),
-            "next_reset_in_seconds": 23902
-        }
+        "daily_users": ActiveUsers.get_active_count(),
+        "total_users": Statistics.get_total_visits(),
+        "last_reset": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     }
     return jsonify(stats)
 
@@ -206,263 +205,65 @@ def swa():
     # Страница SWA
     return "SWA Page"
 
-# Удалим старые маршруты file_browser и добавим новые в админ секцию
-
-@app.route('/file_browser/', defaults={'path': ''})
-@app.route('/file_browser/<path:path>')
-@login_required
+# Обновляем маршрут для управления файлами
+@app.route('/admin/files')
 @admin_required
-def admin_files(path):
-    # Изменим базовую директорию на корень проекта
-    base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    abs_path = os.path.join(base_dir, path)
+def file_browser():
+    # Получаем путь из параметров или используем корневую папку проекта
+    current_path = request.args.get('path', '')
+    base_path = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
     
-    # Проверка, что путь находится внутри разрешенной директории
-    if not abs_path.startswith(base_dir):
-        abort(403)
+    if current_path:
+        full_path = os.path.join(base_path, current_path)
+    else:
+        full_path = base_path
+        
+    # Проверяем, что путь не выходит за пределы корневой папки
+    if not os.path.commonpath([base_path]) == os.path.commonpath([base_path, full_path]):
+        flash('Access denied', 'error')
+        return redirect(url_for('file_browser'))
     
-    if not os.path.exists(abs_path):
-        abort(404)
-    
-    items = []
-    if os.path.isdir(abs_path):
-        for item in os.listdir(abs_path):
-            # Пропускаем скрытые файлы и папки
-            if item.startswith('.'):
-                continue
-                
-            item_path = os.path.join(abs_path, item)
-            is_dir = os.path.isdir(item_path)
-            stat = os.stat(item_path)
-            
-            # Форматируем размер файла
-            size = stat.st_size
-            if not is_dir:
-                if size < 1024:
-                    size_str = f"{size} B"
-                elif size < 1024 * 1024:
-                    size_str = f"{size/1024:.1f} KB"
-                else:
-                    size_str = f"{size/(1024*1024):.1f} MB"
-            else:
-                size_str = ""
-            
-            # Получаем последний комментарий для файла
-            comment = FileComment.query.filter_by(
-                file_path=os.path.join(path, item).replace('\\', '/')
-            ).order_by(FileComment.created_at.desc()).first()
-            
+    try:
+        # Получаем список файлов и папок
+        items = []
+        for item in os.scandir(full_path):
+            size = os.path.getsize(item.path) if item.is_file() else 0
+            modified = os.path.getmtime(item.path)
             items.append({
-                'name': item,
-                'path': os.path.join(path, item).replace('\\', '/'),
-                'is_dir': is_dir,
-                'size': size_str,
-                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S'),
-                'comment': comment.comment if comment else None,
-                'comment_date': comment.created_at.strftime('%Y-%m-%d %H:%M:%S') if comment else None
+                'name': item.name,
+                'is_dir': item.is_dir(),
+                'size': size,
+                'modified': datetime.fromtimestamp(modified),
+                'path': os.path.join(current_path, item.name) if current_path else item.name
             })
         
         # Сортируем: сначала папки, потом файлы
         items.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
-    
-    path_parts = [p for p in path.split('/') if p]
-    
-    return render_template('admin/files.html',
-                         items=items,
-                         current_path=path,
-                         path_parts=path_parts)
-
-@app.route('/admin/files/edit/<path:path>', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def admin_edit_file(path):
-    # Используем корень проекта как базовую директорию
-    base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    file_path = os.path.join(base_dir, path.lstrip('/'))
-    
-    # Проверка безопасности пути
-    if not os.path.abspath(file_path).startswith(base_dir):
-        abort(403)
-    
-    if not os.path.isfile(file_path):
-        abort(404)
-    
-    if request.method == 'POST':
-        content = request.form.get('content')
-        try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            flash('File saved successfully!', 'success')
-            return redirect(url_for('admin_files', path=os.path.dirname(path)))
-        except Exception as e:
-            flash(f'Error saving file: {str(e)}', 'error')
-    
-    try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-    except UnicodeDecodeError:
-        flash('This file cannot be edited (binary file)', 'error')
-        return redirect(url_for('admin_files', path=os.path.dirname(path)))
+        
+        return render_template('admin/file_browser.html', 
+                             items=items, 
+                             current_path=current_path,
+                             parent_path=os.path.dirname(current_path) if current_path else None)
+    except PermissionError:
+        flash('Permission denied', 'error')
+        return redirect(url_for('file_browser'))
     except Exception as e:
-        flash(f'Error reading file: {str(e)}', 'error')
-        return redirect(url_for('admin_files', path=os.path.dirname(path)))
-    
-    return render_template('admin/edit_file.html', 
-                         path=path,
-                         content=content,
-                         filename=os.path.basename(path))
-
-@app.route('/admin/files/download/<path:path>')
-@login_required
-@admin_required
-def admin_download_file(path):
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    directory = os.path.join(base_dir, os.path.dirname(path))
-    filename = os.path.basename(path)
-    
-    if not os.path.join(directory, filename).startswith(base_dir):
-        abort(403)
-    
-    return send_from_directory(directory, filename, as_attachment=True)
-
-@app.route('/admin/files/delete', methods=['POST'])
-@login_required
-@admin_required
-def admin_delete_file():
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'error': 'No data provided'}), 400
-            
-        path = data.get('path')
-        is_dir = data.get('is_dir', False)
-        
-        if not path:
-            return jsonify({'error': 'No path provided'}), 400
-        
-        # Используем корень проекта как базовую директорию
-        base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-        full_path = os.path.join(base_dir, path.lstrip('/'))
-        
-        # Проверка безопасности пути
-        if not os.path.abspath(full_path).startswith(base_dir):
-            return jsonify({'error': 'Access denied'}), 403
-            
-        if not os.path.exists(full_path):
-            return jsonify({'error': 'File or directory not found'}), 404
-        
-        try:
-            if is_dir:
-                import shutil
-                shutil.rmtree(full_path)
-            else:
-                os.remove(full_path)
-            return jsonify({'success': True, 'message': 'Successfully deleted'}), 200
-            
-        except PermissionError:
-            return jsonify({'error': 'Permission denied'}), 403
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
-            
-    except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-@app.route('/admin/files/upload', methods=['POST'])
-@login_required
-@admin_required
-def admin_upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    # Получаем текущий путь из формы
-    current_path = request.form.get('current_path', '')
-    
-    # Используем корень проекта как базовую директорию
-    base_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    upload_path = os.path.join(base_dir, current_path.lstrip('/'))
-    
-    # Проверяем и создаем директорию, если её нет
-    if not os.path.exists(upload_path):
-        try:
-            os.makedirs(upload_path)
-        except Exception as e:
-            return jsonify({'error': f'Could not create directory: {str(e)}'}), 500
-    
-    # Безопасное имя файла
-    filename = secure_filename(file.filename)
-    file_path = os.path.join(upload_path, filename)
-    
-    # Если файл с таким именем существует, добавляем timestamp
-    if os.path.exists(file_path):
-        name, ext = os.path.splitext(filename)
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"{name}_{timestamp}{ext}"
-        file_path = os.path.join(upload_path, filename)
-    
-    try:
-        # Сохраняем файл
-        file.save(file_path)
-        
-        # Получаем информацию о файле
-        stat = os.stat(file_path)
-        size = stat.st_size
-        
-        # Форматируем размер файла
-        if size < 1024:
-            size_str = f"{size} B"
-        elif size < 1024 * 1024:
-            size_str = f"{size/1024:.1f} KB"
-        else:
-            size_str = f"{size/(1024*1024):.1f} MB"
-        
-        return jsonify({
-            'success': True,
-            'name': filename,
-            'path': os.path.join(current_path, filename).replace('\\', '/'),
-            'size': size_str,
-            'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
-        }), 200
-        
-    except Exception as e:
-        return jsonify({'error': f'Error saving file: {str(e)}'}), 500
+        flash(f'Error: {str(e)}', 'error')
+        return redirect(url_for('file_browser'))
 
 # Маршрут для удаления игры
-@app.route('/admin/games/delete/<int:game_id>', methods=['POST'])
-@login_required
-def delete_game(game_id):
-    if not current_user.is_admin:
-        return jsonify({'error': 'Unauthorized'}), 403
-        
+@app.route('/admin/games/delete/<int:id>')
+@admin_required
+def delete_game(id):
+    game = Game.query.get_or_404(id)
     try:
-        game = Game.query.get_or_404(game_id)
-        
-        # Удаляем файл изображения, если он существует
-        if game.image_path:
-            image_path = os.path.join(app.config['UPLOAD_FOLDER'], game.image_path)
-            if os.path.exists(image_path):
-                os.remove(image_path)
-                print(f"Deleted image: {image_path}")
-            
-        # Удаляем файл gameid, если он существует    
-        if game.file_path:
-            gameid_path = os.path.join(app.config['BASE_DIR'], app.config['GAMEID_FOLDER'], f"{game.game_id}.zip")
-            if os.path.exists(gameid_path):
-                os.remove(gameid_path)
-                print(f"Deleted gameid file: {gameid_path}")
-            
         db.session.delete(game)
         db.session.commit()
-        
-        return jsonify({'success': True})
-        
+        flash('Game deleted successfully!', 'success')
     except Exception as e:
         db.session.rollback()
-        print(f"Error deleting game: {str(e)}")  # Для отладки
-        return jsonify({'error': str(e)}), 500
+        flash(f'Error deleting game: {str(e)}', 'error')
+    return redirect(url_for('admin_games'))
 
 # Маршрут для удаления файла
 @app.route('/admin/files/delete/<path:filename>')
@@ -484,71 +285,116 @@ def delete_file(filename):
 def page_not_found(e):
     return render_template('404.html'), 404 
 
-# Добавляем константы для изображений игр
-GAME_IMAGES_FOLDER = os.path.join('app', 'static', 'game_images')
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+@app.route('/admin/games/edit/<int:id>', methods=['GET', 'POST'])
+@admin_required
+def edit_game(id):
+    game = Game.query.get_or_404(id)
+    if request.method == 'POST':
+        game.game_id = request.form['game_id']
+        game.name = request.form['name']
+        game.dlc = json.dumps(request.form.getlist('dlc[]'))
+        try:
+            db.session.commit()
+            flash('Game updated successfully!', 'success')
+            return redirect(url_for('admin_games'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating game: {str(e)}', 'error')
+    
+    return render_template('admin/edit_game.html', game=game, json=json)
 
-# Создаем папку для изображений игр, если её нет
-if not os.path.exists(GAME_IMAGES_FOLDER):
-    os.makedirs(GAME_IMAGES_FOLDER)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.verify_user(username, password)
+        
+        if user:
+            login_user(user)
+            next_page = request.args.get('next')
+            return redirect(next_page or url_for('home'))
+        flash('Invalid username or password', 'error')
+    return render_template('login.html')
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('home')) 
+
+@app.route('/register', methods=['GET', 'POST'])
+@admin_required  # Только админ может создавать новых пользователей
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        is_admin = 'is_admin' in request.form
+        
+        if User.create_user(username, password, is_admin):
+            flash('User created successfully!', 'success')
+            return redirect(url_for('admin_games'))
+        else:
+            flash('Username already exists', 'error')
+    
+    return render_template('register.html') 
+
+# Добавьте в начало файла конфигурацию для загрузки изображений
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
+UPLOAD_FOLDER = 'app/static/game_images'
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/admin/games/edit/<int:id>', methods=['GET', 'POST'])
-@login_required
-def edit_game(id):
-    if not current_user.is_admin:
-        return redirect(url_for('home'))
-        
-    game = Game.query.get_or_404(id)
+def validate_file(file):
+    if not file:
+        return False
+    filename = secure_filename(file.filename)
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@app.route('/game/edit/<int:game_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_game_details(game_id):
+    game = Game.query.get_or_404(game_id)
     
     if request.method == 'POST':
-        try:
-            game.name = request.form['name']
-            game.game_id = request.form['game_id']
-            game.release_date = request.form['release_date']
-            game.developer = request.form['developer']
-            
-            # Обработка платформ
-            game.windows = 'windows' in request.form
-            game.mac = 'mac' in request.form
-            game.linux = 'linux' in request.form
-            
-            # Обработка изображения
-            if 'image' in request.files:
-                file = request.files['image']
-                if file and file.filename:
-                    filename = secure_filename(file.filename)
-                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename))
-                    game.image_path = f'images/{filename}'
-            
-            # Обработка файла gameid
-            if 'gameid_file' in request.files:
-                gameid_file = request.files['gameid_file']
-                if gameid_file and gameid_file.filename:
-                    # Создаем директорию gameid в корне проекта
-                    gameid_path = os.path.join(app.config['BASE_DIR'], app.config['GAMEID_FOLDER'])
-                    os.makedirs(gameid_path, exist_ok=True)
-                    
-                    # Сохраняем файл с именем game_id
-                    filename = f"{game.game_id}.zip"
-                    file_path = os.path.join(gameid_path, filename)
-                    gameid_file.save(file_path)
-                    game.file_path = file_path
-                    
-                    print(f"File saved to: {file_path}")  # Для отладки
-            
-            db.session.commit()
-            flash('Game updated successfully!', 'success')
-            return redirect(url_for('admin_games'))
-            
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error updating game: {str(e)}', 'error')
-            print(f"Error: {str(e)}")  # Для отладки
+        game.name = request.form['name']
+        game.game_id = request.form['game_id']
+        game.release_date = request.form['release_date'] or None
+        game.developer = request.form['developer']
+        
+        # Обработка загрузки изображения
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and allowed_file(file.filename):
+                filename = secure_filename(f"{game.game_id}_{file.filename}")
+                if not os.path.exists(UPLOAD_FOLDER):
+                    os.makedirs(UPLOAD_FOLDER)
+                file_path = os.path.join(UPLOAD_FOLDER, filename)
+                file.save(file_path)
+                game.path = f"/static/game_images/{filename}"
+
+        # Обработка DLC
+        dlc_list = request.form.getlist('dlc[]')
+        if dlc_list:
+            game.dlc = json.dumps(dlc_list)
+        else:
+            game.dlc = None
+
+        # Обработка систем
+        game.windows = 'windows' in request.form
+        game.mac = 'mac' in request.form
+        game.linux = 'linux' in request.form
+
+        db.session.commit()
+        flash('Game updated successfully!', 'success')
+        return redirect(url_for('gamelist'))
     
-    return render_template('admin/edit_game.html', game=game)
+    # Добавляем json в контекст шаблона
+    return render_template('edit_game.html', game=game, json=json) 
 
 @app.route('/admin/files/delete/<path:filepath>', methods=['POST'])
 @admin_required
@@ -586,346 +432,38 @@ def rename_file():
     
     return redirect(url_for('file_browser', path=current_path)) 
 
-@app.route('/developers')
-def developers():
-    # Получаем разработчиков из базы данных вместо хардкода
-    developers = Developer.query.all()
-    return render_template('developers.html', developers=developers)
-
-@app.route('/admin/developers', methods=['GET'])
+@app.route('/admin/files/edit/<path:filepath>', methods=['GET', 'POST'])
 @admin_required
-def admin_developers():
-    developers = Developer.query.all()
-    return render_template('admin/developers.html', developers=developers)
-
-# Обновляем константы
-UPLOAD_FOLDER = os.path.join('app', 'static', 'avatars')
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-
-# Создаем папку для аватаров, если её нет
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/admin/developers/edit/<int:id>', methods=['GET', 'POST'])
-@admin_required
-def edit_developer(id):
-    developer = Developer.query.get_or_404(id)
+def edit_file_content(filepath):
+    # Используем текущую директорию вместо uploads
+    full_path = os.path.join(os.getcwd(), filepath)
     
     if request.method == 'POST':
-        developer.name = request.form['name']
-        developer.role = request.form['role']
-        developer.discord = request.form['discord']
-        developer.description = request.form['description']
-        
-        # Обработка загрузки нового аватара
-        avatar_file = request.files.get('avatar')
-        if avatar_file and avatar_file.filename:
-            if allowed_file(avatar_file.filename):
-                # Удаляем старый аватар если он существует
-                if developer.avatar:
-                    old_avatar_path = os.path.join(app.root_path, 'static', 'avatars', os.path.basename(developer.avatar))
-                    if os.path.exists(old_avatar_path):
-                        os.remove(old_avatar_path)
-                
-                # Сохраняем новый аватар
-                filename = secure_filename(f"{uuid.uuid4()}{os.path.splitext(avatar_file.filename)[1]}")
-                avatar_path = os.path.join(UPLOAD_FOLDER, filename)
-                avatar_file.save(avatar_path)
-                developer.avatar = f"/static/avatars/{filename}"
-                
-                print(f"Saved avatar to: {avatar_path}")  # Для отладки
-            else:
-                flash('Invalid file type. Allowed types are: png, jpg, jpeg, gif, webp', 'error')
-                return redirect(url_for('edit_developer', id=id))
-        
-        db.session.commit()
-        flash('Developer updated successfully!', 'success')
-        return redirect(url_for('developers'))
-    
-    return render_template('admin/edit_developer.html', developer=developer)
-
-@app.route('/admin/developers/add', methods=['GET', 'POST'])
-@admin_required
-def add_developer():
-    if request.method == 'POST':
-        avatar_file = request.files.get('avatar')
-        avatar_path = None
-        
-        if avatar_file and avatar_file.filename:
-            if allowed_file(avatar_file.filename):
-                filename = secure_filename(f"{uuid.uuid4()}{os.path.splitext(avatar_file.filename)[1]}")
-                avatar_file.save(os.path.join(UPLOAD_FOLDER, filename))
-                avatar_path = f"/static/avatars/{filename}"
-            else:
-                flash('Invalid file type. Allowed types are: png, jpg, jpeg, gif, webp', 'error')
-                return redirect(url_for('add_developer'))
-        
-        developer = Developer(
-            name=request.form['name'],
-            role=request.form['role'],
-            discord=request.form['discord'],
-            description=request.form['description'],
-            avatar=avatar_path
-        )
-        
-        db.session.add(developer)
-        db.session.commit()
-        flash('Developer added successfully!', 'success')
-        return redirect(url_for('developers'))
-        
-    return render_template('admin/edit_developer.html', developer=None)
-
-@app.route('/admin/developers/delete/<int:id>', methods=['POST'])
-@admin_required
-def delete_developer(id):
-    developer = Developer.query.get_or_404(id)
-    
-    # Удаляем аватар
-    if developer.avatar:
-        avatar_path = os.path.join(app.root_path, developer.avatar.lstrip('/'))
-        if os.path.exists(avatar_path):
-            os.remove(avatar_path)
-    
-    db.session.delete(developer)
-    db.session.commit()
-    flash('Developer deleted successfully!', 'success')
-    return redirect(url_for('admin_developers')) 
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('home')) 
-
-UPLOAD_FOLDER = os.path.join('app', 'static', 'uploads')
-ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif', 'zip', 'rar', '7z', 'exe', 'msi'}
-
-# Создаем папку для загрузок если её нет
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-@app.route('/upload', methods=['POST'])
-@login_required
-@admin_required
-def upload_file():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if file and allowed_file(file.filename):
-        # Получаем текущий путь из параметра
-        current_path = request.form.get('current_path', '')
-        upload_path = os.path.join(UPLOAD_FOLDER, current_path.lstrip('/'))
-        
-        # Создаем директорию если её нет
-        if not os.path.exists(upload_path):
-            os.makedirs(upload_path)
-        
-        filename = secure_filename(file.filename)
-        file_path = os.path.join(upload_path, filename)
-        
-        # Если файл существует, добавляем timestamp к имени
-        if os.path.exists(file_path):
-            name, ext = os.path.splitext(filename)
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            filename = f"{name}_{timestamp}{ext}"
-            file_path = os.path.join(upload_path, filename)
-        
-        file.save(file_path)
-        
-        # Получаем информацию о файле
-        file_stat = os.stat(file_path)
-        file_info = {
-            'name': filename,
-            'path': os.path.join(current_path, filename),
-            'size': file_stat.st_size,
-            'modified': datetime.fromtimestamp(file_stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
-        }
-        
-        return jsonify(file_info), 200
-    
-    return jsonify({'error': 'File type not allowed'}), 400 
-
-@app.route('/admin/games/edit/<int:game_id>', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def edit_game_details(game_id):
-    game = Game.query.get_or_404(game_id)
-    
-    if request.method == 'POST':
-        game.name = request.form['name']
-        game.game_id = request.form['game_id']
-        game.release_date = request.form['release_date']
-        game.developer = request.form['developer']
-        game.windows = 'windows' in request.form
-        game.mac = 'mac' in request.form
-        game.linux = 'linux' in request.form
-        
-        # Обработка загрузки изображения
-        if 'game_image' in request.files:
-            file = request.files['game_image']
-            if file and file.filename and allowed_file(file.filename):
-                # Удаляем старое изображение если оно существует
-                if game.image_path:
-                    old_image_path = os.path.join(app.root_path, 'static', game.image_path.lstrip('/'))
-                    if os.path.exists(old_image_path):
-                        os.remove(old_image_path)
-                
-                # Сохраняем новое изображение
-                filename = secure_filename(f"game_{game.id}_{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
-                file_path = os.path.join(GAME_IMAGES_FOLDER, filename)
-                file.save(file_path)
-                game.image_path = f"/static/game_images/{filename}"
-        
-        db.session.commit()
-        flash('Game updated successfully!', 'success')
-        return redirect(url_for('admin_games'))
-    
-    return render_template('admin/edit_game.html', game=game) 
-
-@app.route('/file_browser/', defaults={'path': ''})
-@app.route('/file_browser/<path:path>')
-@login_required
-@admin_required
-def file_browser(path):
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    abs_path = os.path.join(base_dir, path)
-    
-    # Проверка, что путь находится внутри разрешенной директории
-    if not abs_path.startswith(base_dir):
-        abort(403)
-    
-    if not os.path.exists(abs_path):
-        abort(404)
-    
-    items = []
-    if os.path.isdir(abs_path):
-        for item in os.listdir(abs_path):
-            item_path = os.path.join(abs_path, item)
-            is_dir = os.path.isdir(item_path)
-            stat = os.stat(item_path)
-            
-            items.append({
-                'name': item,
-                'path': os.path.join(path, item).replace('\\', '/'),
-                'is_dir': is_dir,
-                'size': stat.st_size if not is_dir else None,
-                'modified': datetime.fromtimestamp(stat.st_mtime).strftime('%Y-%m-%d %H:%M:%S')
-            })
-        
-        # Сортируем: сначала папки, потом файлы
-        items.sort(key=lambda x: (not x['is_dir'], x['name'].lower()))
-    
-    path_parts = [p for p in path.split('/') if p]
-    
-    return render_template('file_browser.html',
-                         items=items,
-                         current_path=path,
-                         path_parts=path_parts)
-
-@app.route('/edit/<path:path>', methods=['GET', 'POST'])
-@login_required
-@admin_required
-def edit_file(path):
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    file_path = os.path.join(base_dir, path)
-    
-    # Проверка безопасности пути
-    if not file_path.startswith(base_dir):
-        abort(403)
-    
-    if not os.path.isfile(file_path):
-        abort(404)
-    
-    if request.method == 'POST':
-        content = request.form.get('content')
         try:
-            with open(file_path, 'w', encoding='utf-8') as f:
-                f.write(content)
-            flash('File saved successfully!', 'success')
-            return redirect(url_for('file_browser', path=os.path.dirname(path)))
+            content = request.form.get('content')
+            with open(full_path, 'w', encoding='utf-8') as file:
+                file.write(content)
+            flash('File content updated successfully', 'success')
+            return redirect(url_for('file_browser', path=os.path.dirname(filepath)))
         except Exception as e:
-            flash(f'Error saving file: {str(e)}', 'error')
-    
+            flash(f'Error updating file: {str(e)}', 'error')
+            
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-    except UnicodeDecodeError:
-        flash('This file cannot be edited (binary file)', 'error')
-        return redirect(url_for('file_browser', path=os.path.dirname(path)))
-    
-    return render_template('edit_file.html', 
-                         path=path,
-                         content=content,
-                         filename=os.path.basename(path))
-
-@app.route('/delete', methods=['POST'])
-@login_required
-@admin_required
-def delete_item():
-    data = request.get_json()
-    path = data.get('path')
-    is_dir = data.get('is_dir', False)
-    
-    base_dir = os.path.abspath(os.path.dirname(__file__))
-    full_path = os.path.join(base_dir, path)
-    
-    # Проверка безопасности пути
-    if not full_path.startswith(base_dir):
-        return jsonify({'error': 'Access denied'}), 403
-    
-    try:
-        if is_dir:
-            import shutil
-            shutil.rmtree(full_path)
-        else:
-            os.remove(full_path)
-        return jsonify({'success': True})
+        with open(full_path, 'r', encoding='utf-8') as file:
+            content = file.read()
+        return render_template('admin/edit_file.html', 
+                             filepath=filepath, 
+                             content=content,
+                             filename=os.path.basename(filepath))
     except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+        flash(f'Error reading file: {str(e)}', 'error')
+        return redirect(url_for('file_browser')) 
 
-@app.route('/admin/files/comment', methods=['POST'])
-@login_required
-@admin_required
-def add_file_comment():
-    data = request.get_json()
-    path = data.get('path')
-    comment = data.get('comment')
-    
-    if not path or not comment:
-        return jsonify({'error': 'Path and comment are required'}), 400
-        
-    file_comment = FileComment(
-        file_path=path,
-        comment=comment,
-        user_id=current_user.id
-    )
-    
-    db.session.add(file_comment)
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'comment': comment,
-        'created_at': file_comment.created_at.strftime('%Y-%m-%d %H:%M:%S')
-    }) 
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    return render_template('500.html'), 500
 
-@app.route('/download/SWASetup.exe')
-def download_setup():
-    try:
-        # Используем корневую папку downloads
-        downloads_dir = os.path.join(app.config['BASE_DIR'], app.config['DOWNLOADS_FOLDER'])
-        return send_from_directory(downloads_dir, 'SWASetup.exe')
-    except Exception as e:
-        print(f"Error downloading file: {str(e)}")
-        return "File not found", 404 
+@app.errorhandler(403)
+def forbidden_error(error):
+    return render_template('403.html'), 403 

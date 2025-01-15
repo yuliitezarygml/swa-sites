@@ -6,7 +6,7 @@ class Config:
     SECRET_KEY = 'your-secret-key-here'
     DOWNLOADS_FOLDER = 'downloads'
     FETCH_GAMEID_FOLDER = 'fetch_gameid'
-    GAMEID_FOLDER = 'gameid'
+    GAMEID_FOLDER = os.path.join('static', 'gameid')
     STATIC_FOLDER = 'static'
     APP_VERSION = 'R.1.0 GFK'
     
