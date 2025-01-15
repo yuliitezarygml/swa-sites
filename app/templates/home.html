@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}SWA Game Service - Home{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Welcome to SWA Game Service</h1>
+    <p>This is the game management system for SWA V2.</p>
+    
+    <h2>Available Services:</h2>
+    <ul>
+        <li>Game Management</li>
+        <li>DLC Management</li>
+        <li>File Storage</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h2>Statistics</h2>
+    <div class="stats-grid">
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.total_games }}</div>
+            <div class="stat-label">Total Games</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.online_users }}</div>
+            <div class="stat-label">Online Users</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value">{{ stats.total_users }}</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+    </div>
+</div>
+
+<style>
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.stat-item {
+    text-align: center;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.stat-value {
+    font-size: 2em;
+    font-weight: bold;
+    color: #007bff;
+    margin-bottom: 5px;
+}
+
+.stat-label {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+</style>
+{% endblock %} 

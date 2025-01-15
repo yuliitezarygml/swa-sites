@@ -1,0 +1,6 @@
+{
+    "admin": {
+        "password_hash": "scrypt:32768:8:1$4dCYKPOsYLI8A5wz$464fd3be1a5465dbf1892d1c84e006c5efa159d405f0674920c52d86a1b94822051380937dd3127454cdd8634cea260c5376f32e3ec29b7dfc7702b0d8e61817",
+        "is_admin": true
+    }
+}

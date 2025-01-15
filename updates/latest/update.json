@@ -1,0 +1,12 @@
+{
+    "version": "R.1.0 GFK",
+    "update_available": true,
+    "download_url": "/api/download/update",
+    "changelog": [
+        "Добавлены новые функции",
+        "Исправлены ошибки",
+        "Улучшена производительность"
+    ],
+    "required": false,
+    "size": "15MB"
+} 

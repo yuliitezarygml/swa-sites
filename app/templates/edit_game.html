@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Game - {{ game.name }}{% endblock %}
+
+{% block content %}
+<div class="edit-container">
+    <h1>Edit Game: {{ game.name }}</h1>
+
+    <form method="POST" enctype="multipart/form-data" class="edit-form">
+        <div class="form-group">
+            <label>Game Name:</label>
+            <input type="text" name="name" value="{{ game.name }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Game ID:</label>
+            <input type="text" name="game_id" value="{{ game.game_id }}" required>
+        </div>
+
+        <div class="form-group">
+            <label>Release Date:</label>
+            <input type="date" name="release_date" value="{{ game.release_date }}">
+        </div>
+
+        <div class="form-group">
+            <label>Developer:</label>
+            <input type="text" name="developer" value="{{ game.developer if game.developer }}">
+        </div>
+
+        <div class="form-group">
+            <label>Game Image:</label>
+            <input type="file" name="image" accept="image/*">
+            {% if game.path %}
+                <img src="{{ game.path }}" alt="Current image" class="preview-image">
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label>Supported Systems:</label>
+            <div class="systems-checkboxes">
+                <label class="system-checkbox">
+                    <input type="checkbox" name="windows" {% if game.windows %}checked{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/Windows_Phone_icon-icons.png') }}" alt="Windows">
+                </label>
+                <label class="system-checkbox">
+                    <input type="checkbox" name="mac" {% if game.mac %}checked{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/social_apple_mac_65.png') }}" alt="Mac">
+                </label>
+                <label class="system-checkbox">
+                    <input type="checkbox" name="linux" {% if game.linux %}checked{% endif %}>
+                    <img src="{{ url_for('static', filename='icons/2333386-code-linux-os_85584.png') }}" alt="Linux">
+                </label>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label>DLC:</label>
+            <div id="dlc-container">
+                {% if game.dlc %}
+                    {% for dlc in json.loads(game.dlc) %}
+                        <div class="dlc-item">
+                            <input type="text" name="dlc[]" value="{{ dlc }}">
+                            <button type="button" class="remove-dlc">Remove</button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            <button type="button" class="add-dlc">Add DLC</button>
+        </div>
+
+        <div class="form-actions">
+            <button type="submit" class="button">Save Changes</button>
+            <a href="{{ url_for('gamelist') }}" class="button button-secondary">Cancel</a>
+        </div>
+    </form>
+</div>
+
+<style>
+.edit-container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #2a2a2a;
+    border-radius: 8px;
+}
+
+.edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.form-group input[type="text"],
+.form-group input[type="date"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #444;
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+}
+
+.preview-image {
+    max-width: 200px;
+    margin-top: 10px;
+}
+
+.systems-checkboxes {
+    display: flex;
+    gap: 15px;
+}
+
+.system-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+}
+
+.system-checkbox img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.button {
+    background: #ff4500;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.button-secondary {
+    background: #666;
+}
+
+.button:hover {
+    opacity: 0.9;
+}
+
+.dlc-item {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.remove-dlc {
+    background: #dc3545;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.systems img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+
+.system-checkbox img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+}
+</style>
+
+<script>
+document.querySelector('.add-dlc').addEventListener('click', function() {
+    const container = document.getElementById('dlc-container');
+    const dlcItem = document.createElement('div');
+    dlcItem.className = 'dlc-item';
+    dlcItem.innerHTML = `
+        <input type="text" name="dlc[]">
+        <button type="button" class="remove-dlc">Remove</button>
+    `;
+    container.appendChild(dlcItem);
+});
+
+document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('remove-dlc')) {
+        e.target.parentElement.remove();
+    }
+});
+</script>
+{% endblock %} 

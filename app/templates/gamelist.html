@@ -1,0 +1,319 @@
+{% extends "base.html" %}
+
+{% block title %}Game List{% endblock %}
+
+{% block content %}
+<div class="gamelist-container">
+    <h1>GAMELIST</h1>
+    <p class="total-games">Total games: {{ total_games }}</p>
+    
+    <div class="search-container">
+        <input type="text" id="gameSearch" placeholder="Search for a game..." 
+               onkeyup="filterGames()" class="search-input">
+    </div>
+
+    <div class="pagination">
+        {% if games.has_prev %}
+            <a href="{{ url_for('gamelist', page=games.prev_num) }}" class="button">Previous</a>
+        {% else %}
+            <span class="button disabled">Previous</span>
+        {% endif %}
+
+        <span class="page-info">{{ games.page }} / {{ games.pages }}</span>
+
+        {% if games.has_next %}
+            <a href="{{ url_for('gamelist', page=games.next_num) }}" class="button">Next</a>
+        {% else %}
+            <span class="button disabled">Next</span>
+        {% endif %}
+    </div>
+
+    <div class="games-grid">
+        {% for game in games.items %}
+        <div class="game-card" onclick="copyGameId('{{ game.game_id }}')">
+            <div class="game-image">
+                {% if game.path %}
+                    <img src="{{ game.path }}" alt="{{ game.name }}">
+                {% else %}
+                    <div class="no-image">No Image</div>
+                {% endif %}
+            </div>
+            <div class="game-info">
+                <h3>{{ game.name }}</h3>
+                <p class="game-id">
+                    Game ID: <span class="copyable">{{ game.game_id }}</span>
+                </p>
+                <p class="release-date">Release Date: {{ game.release_date if game.release_date else 'Unknown' }}</p>
+                <p class="developer">Developer: {{ game.developer if game.developer else 'Unknown' }}</p>
+                <div class="systems">
+                    {% if game.windows %}
+                        <img src="{{ url_for('static', filename='icons/Windows_Phone_icon-icons.png') }}" alt="Windows">
+                    {% endif %}
+                    {% if game.mac %}
+                        <img src="{{ url_for('static', filename='icons/social_apple_mac_65.png') }}" alt="Mac">
+                    {% endif %}
+                    {% if game.linux %}
+                        <img src="{{ url_for('static', filename='icons/2333386-code-linux-os_85584.png') }}" alt="Linux">
+                    {% endif %}
+                </div>
+                {% if current_user.is_authenticated and current_user.is_admin %}
+                    <div class="admin-controls" onclick="event.stopPropagation();">
+                        <a href="{{ url_for('edit_game_details', game_id=game.id) }}" class="button edit-button">Edit</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div id="notification-container"></div>
+
+<style>
+.gamelist-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.total-games {
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.search-container {
+    margin-bottom: 20px;
+}
+
+.search-input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ff4500;
+    border-radius: 5px;
+    background: #333;
+    color: white;
+}
+
+.games-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.game-card {
+    background: #2a2a2a;
+    border: 1px solid #ff4500;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.game-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 15px rgba(255, 69, 0, 0.3);
+}
+
+.game-image {
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+}
+
+.game-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.no-image {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #666;
+}
+
+.game-info {
+    padding: 15px;
+    color: #fff;
+}
+
+.game-info h3 {
+    color: #ff4500;
+    margin: 0 0 10px 0;
+}
+
+.systems {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.systems img {
+    width: 24px;
+    height: 24px;
+}
+
+.release-date, .developer {
+    color: #888;
+    margin: 5px 0;
+}
+
+.pagination {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.page-info {
+    color: #fff;
+    padding: 5px 10px;
+}
+
+.button {
+    background: #ff4500;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+}
+
+.button:hover {
+    background: #ff5722;
+}
+
+.button.disabled {
+    background: #666;
+    cursor: not-allowed;
+}
+
+.game-id {
+    cursor: pointer;
+    user-select: none;
+}
+
+.copyable {
+    color: #ff4500;
+}
+
+#notification-container {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    z-index: 1000;
+}
+
+.notification {
+    background-color: rgba(0, 0, 0, 0.8);
+    color: #ff4500;
+    padding: 10px 20px;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    border: 1px solid #ff4500;
+    animation: slideIn 0.3s ease-out, fadeOut 3s forwards;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(-100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes fadeOut {
+    0%, 70% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0;
+    }
+}
+
+.admin-controls {
+    margin-top: 15px;
+}
+
+.edit-button {
+    background: #ff4500;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    display: inline-block;
+    transition: background-color 0.3s;
+}
+
+.edit-button:hover {
+    background: #cc3700;
+}
+</style>
+
+<script>
+function filterGames() {
+    var input = document.getElementById('gameSearch');
+    var filter = input.value.toUpperCase();
+    var games = document.getElementsByClassName('game-card');
+
+    for (var i = 0; i < games.length; i++) {
+        var title = games[i].getElementsByTagName('h3')[0];
+        var txtValue = title.textContent || title.innerText;
+        if (txtValue.toUpperCase().indexOf(filter) > -1) {
+            games[i].style.display = '';
+        } else {
+            games[i].style.display = 'none';
+        }
+    }
+}
+
+function copyGameId(gameId) {
+    // Создаем временный элемент input
+    const tempInput = document.createElement('input');
+    tempInput.value = gameId;
+    document.body.appendChild(tempInput);
+    
+    // Выбираем текст
+    tempInput.select();
+    tempInput.setSelectionRange(0, 99999);
+    
+    try {
+        // Пытаемся скопировать текст
+        document.execCommand('copy');
+        showNotification(`Game ID ${gameId} copied!`);
+    } catch (err) {
+        // Пробуем альтернативный метод
+        navigator.clipboard.writeText(gameId).then(function() {
+            showNotification(`Game ID ${gameId} copied!`);
+        }).catch(function(err) {
+            console.error('Failed to copy text: ', err);
+            showNotification('Failed to copy Game ID');
+        });
+    }
+    
+    // Удаляем временный элемент
+    document.body.removeChild(tempInput);
+}
+
+function showNotification(message) {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    notification.className = 'notification';
+    notification.textContent = message;
+    
+    container.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.remove();
+    }, 3000);
+}
+</script>
+{% endblock %} 
