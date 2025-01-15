@@ -8,8 +8,8 @@ import os
 class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    game_id = db.Column(db.String(20), unique=True, nullable=False)
-    release_date = db.Column(db.String(50))
+    game_id = db.Column(db.String(100), unique=True, nullable=False)
+    release_date = db.Column(db.String(100))
     developer = db.Column(db.String(100))
     path = db.Column(db.String(200))
     dlc = db.Column(db.Text)
@@ -20,6 +20,7 @@ class Game(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     file_path = db.Column(db.String(500))
     description = db.Column(db.Text)
+    image_path = db.Column(db.String(500))
     
 class LauncherGame(db.Model):
     id = db.Column(db.Integer, primary_key=True)

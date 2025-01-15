@@ -286,110 +286,52 @@ def delete_file(filename):
 def page_not_found(e):
     return render_template('404.html'), 404 
 
-@app.route('/admin/games/edit/<int:id>', methods=['GET', 'POST'])
-@admin_required
-def edit_game(id):
-    game = Game.query.get_or_404(id)
-    if request.method == 'POST':
-        game.game_id = request.form['game_id']
-        game.name = request.form['name']
-        game.dlc = json.dumps(request.form.getlist('dlc[]'))
-        try:
-            db.session.commit()
-            flash('Game updated successfully!', 'success')
-            return redirect(url_for('admin_games'))
-        except Exception as e:
-            db.session.rollback()
-            flash(f'Error updating game: {str(e)}', 'error')
-    
-    return render_template('admin/edit_game.html', game=game, json=json)
+# Добавляем константы для изображений игр
+GAME_IMAGES_FOLDER = os.path.join('app', 'static', 'game_images')
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('home'))
-    
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.verify_user(username, password)
-        
-        if user:
-            login_user(user)
-            next_page = request.args.get('next')
-            return redirect(next_page or url_for('home'))
-        flash('Invalid username or password', 'error')
-    return render_template('login.html')
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('home')) 
-
-@app.route('/register', methods=['GET', 'POST'])
-@admin_required  # Только админ может создавать новых пользователей
-def register():
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        is_admin = 'is_admin' in request.form
-        
-        if User.create_user(username, password, is_admin):
-            flash('User created successfully!', 'success')
-            return redirect(url_for('admin_games'))
-        else:
-            flash('Username already exists', 'error')
-    
-    return render_template('register.html') 
-
-# Добавьте в начало файла конфигурацию для загрузки изображений
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif'}
-UPLOAD_FOLDER = 'app/static/game_images'
+# Создаем папку для изображений игр, если её нет
+if not os.path.exists(GAME_IMAGES_FOLDER):
+    os.makedirs(GAME_IMAGES_FOLDER)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-@app.route('/game/edit/<int:game_id>', methods=['GET', 'POST'])
+@app.route('/admin/games/edit/<int:id>', methods=['GET', 'POST'])
 @admin_required
-def edit_game_details(game_id):
-    game = Game.query.get_or_404(game_id)
+def edit_game(id):
+    game = Game.query.get_or_404(id)
     
     if request.method == 'POST':
         game.name = request.form['name']
         game.game_id = request.form['game_id']
-        game.release_date = request.form['release_date'] or None
+        game.release_date = request.form['release_date']
         game.developer = request.form['developer']
-        
-        # Обработка загрузки изображения
-        if 'image' in request.files:
-            file = request.files['image']
-            if file and allowed_file(file.filename):
-                filename = secure_filename(f"{game.game_id}_{file.filename}")
-                if not os.path.exists(UPLOAD_FOLDER):
-                    os.makedirs(UPLOAD_FOLDER)
-                file_path = os.path.join(UPLOAD_FOLDER, filename)
-                file.save(file_path)
-                game.path = f"/static/game_images/{filename}"
-
-        # Обработка DLC
-        dlc_list = request.form.getlist('dlc[]')
-        if dlc_list:
-            game.dlc = json.dumps(dlc_list)
-        else:
-            game.dlc = None
-
-        # Обработка систем
         game.windows = 'windows' in request.form
         game.mac = 'mac' in request.form
         game.linux = 'linux' in request.form
-
+        
+        # Обработка загрузки изображения
+        if 'game_image' in request.files:
+            file = request.files['game_image']
+            if file and file.filename and allowed_file(file.filename):
+                # Удаляем старое изображение если оно существует
+                if game.image_path:
+                    old_image_path = os.path.join(app.root_path, 'static', game.image_path.lstrip('/'))
+                    if os.path.exists(old_image_path):
+                        os.remove(old_image_path)
+                
+                # Сохраняем новое изображение
+                filename = secure_filename(f"game_{game.id}_{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
+                file_path = os.path.join(GAME_IMAGES_FOLDER, filename)
+                file.save(file_path)
+                game.image_path = f"/static/game_images/{filename}"
+        
         db.session.commit()
         flash('Game updated successfully!', 'success')
         return redirect(url_for('gamelist'))
     
-    # Добавляем json в контекст шаблона
-    return render_template('edit_game.html', game=game, json=json) 
+    return render_template('admin/edit_game.html', game=game)
 
 @app.route('/admin/files/delete/<path:filepath>', methods=['POST'])
 @admin_required
@@ -561,3 +503,10 @@ def delete_developer(id):
     db.session.commit()
     flash('Developer deleted successfully!', 'success')
     return redirect(url_for('admin_developers')) 
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('home')) 
