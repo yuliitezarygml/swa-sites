@@ -3,7 +3,7 @@ import socket
 
 def get_ip():
     try:
-        # Получаем имя хоста
+        # Получаем имя х оста
         hostname = socket.gethostname()
         # Получаем IP-адрес
         ip_address = socket.gethostbyname(hostname)
