@@ -441,12 +441,18 @@ def delete_game(game_id):
         game = Game.query.get_or_404(game_id)
         
         # Удаляем файл изображения, если он существует
-        if game.image_path and os.path.exists(os.path.join(app.root_path, 'static', game.image_path)):
-            os.remove(os.path.join(app.root_path, 'static', game.image_path))
+        if game.image_path:
+            image_path = os.path.join(app.config['UPLOAD_FOLDER'], game.image_path)
+            if os.path.exists(image_path):
+                os.remove(image_path)
+                print(f"Deleted image: {image_path}")
             
-        # Удаляем файл игры, если он существует    
-        if game.file_path and os.path.exists(game.file_path):
-            os.remove(game.file_path)
+        # Удаляем файл gameid, если он существует    
+        if game.file_path:
+            gameid_path = os.path.join(app.config['BASE_DIR'], app.config['GAMEID_FOLDER'], f"{game.game_id}.zip")
+            if os.path.exists(gameid_path):
+                os.remove(gameid_path)
+                print(f"Deleted gameid file: {gameid_path}")
             
         db.session.delete(game)
         db.session.commit()
@@ -455,6 +461,7 @@ def delete_game(game_id):
         
     except Exception as e:
         db.session.rollback()
+        print(f"Error deleting game: {str(e)}")  # Для отладки
         return jsonify({'error': str(e)}), 500
 
 # Маршрут для удаления файла
@@ -912,3 +919,13 @@ def add_file_comment():
         'comment': comment,
         'created_at': file_comment.created_at.strftime('%Y-%m-%d %H:%M:%S')
     }) 
+
+@app.route('/download/SWASetup.exe')
+def download_setup():
+    try:
+        # Используем корневую папку downloads
+        downloads_dir = os.path.join(app.config['BASE_DIR'], app.config['DOWNLOADS_FOLDER'])
+        return send_from_directory(downloads_dir, 'SWASetup.exe')
+    except Exception as e:
+        print(f"Error downloading file: {str(e)}")
+        return "File not found", 404 
