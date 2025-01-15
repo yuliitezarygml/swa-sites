@@ -142,15 +142,21 @@
 
 <script>
 function deleteGame(gameId) {
-    if (confirm('Are you sure you want to delete this game?')) {
+    if (confirm('Вы уверены, что хотите удалить эту игру?')) {
         fetch(`/admin/games/delete/${gameId}`, {
             method: 'POST'
-        }).then(response => {
-            if (response.ok) {
+        })
+        .then(response => response.json()
+            .then(data => {
+                if (!response.ok) {
+                    throw new Error(data.error || 'Ошибка при удалении игры');
+                }
                 location.reload();
-            } else {
-                alert('Error deleting game');
-            }
+            })
+        )
+        .catch(error => {
+            console.error('Ошибка:', error);
+            alert(error.message || 'Ошибка при удалении игры');
         });
     }
 }

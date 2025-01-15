@@ -431,18 +431,31 @@ def admin_upload_file():
         return jsonify({'error': f'Error saving file: {str(e)}'}), 500
 
 # Маршрут для удаления игры
-@app.route('/admin/games/delete/<int:id>')
-@admin_required
-def delete_game(id):
-    game = Game.query.get_or_404(id)
+@app.route('/admin/games/delete/<int:game_id>', methods=['POST'])
+@login_required
+def delete_game(game_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+        
     try:
+        game = Game.query.get_or_404(game_id)
+        
+        # Удаляем файл изображения, если он существует
+        if game.image_path and os.path.exists(os.path.join(app.root_path, 'static', game.image_path)):
+            os.remove(os.path.join(app.root_path, 'static', game.image_path))
+            
+        # Удаляем файл игры, если он существует    
+        if game.file_path and os.path.exists(game.file_path):
+            os.remove(game.file_path)
+            
         db.session.delete(game)
         db.session.commit()
-        flash('Game deleted successfully!', 'success')
+        
+        return jsonify({'success': True})
+        
     except Exception as e:
         db.session.rollback()
-        flash(f'Error deleting game: {str(e)}', 'error')
-    return redirect(url_for('admin_games'))
+        return jsonify({'error': str(e)}), 500
 
 # Маршрут для удаления файла
 @app.route('/admin/files/delete/<path:filename>')
@@ -476,38 +489,57 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/admin/games/edit/<int:id>', methods=['GET', 'POST'])
-@admin_required
+@login_required
 def edit_game(id):
+    if not current_user.is_admin:
+        return redirect(url_for('home'))
+        
     game = Game.query.get_or_404(id)
     
     if request.method == 'POST':
-        game.name = request.form['name']
-        game.game_id = request.form['game_id']
-        game.release_date = request.form['release_date']
-        game.developer = request.form['developer']
-        game.windows = 'windows' in request.form
-        game.mac = 'mac' in request.form
-        game.linux = 'linux' in request.form
-        
-        # Обработка загрузки изображения
-        if 'game_image' in request.files:
-            file = request.files['game_image']
-            if file and file.filename and allowed_file(file.filename):
-                # Удаляем старое изображение если оно существует
-                if game.image_path:
-                    old_image_path = os.path.join(app.root_path, 'static', game.image_path.lstrip('/'))
-                    if os.path.exists(old_image_path):
-                        os.remove(old_image_path)
-                
-                # Сохраняем новое изображение
-                filename = secure_filename(f"game_{game.id}_{uuid.uuid4()}{os.path.splitext(file.filename)[1]}")
-                file_path = os.path.join(GAME_IMAGES_FOLDER, filename)
-                file.save(file_path)
-                game.image_path = f"/static/game_images/{filename}"
-        
-        db.session.commit()
-        flash('Game updated successfully!', 'success')
-        return redirect(url_for('gamelist'))
+        try:
+            game.name = request.form['name']
+            game.game_id = request.form['game_id']
+            game.release_date = request.form['release_date']
+            game.developer = request.form['developer']
+            
+            # Обработка платформ
+            game.windows = 'windows' in request.form
+            game.mac = 'mac' in request.form
+            game.linux = 'linux' in request.form
+            
+            # Обработка изображения
+            if 'image' in request.files:
+                file = request.files['image']
+                if file and file.filename:
+                    filename = secure_filename(file.filename)
+                    file.save(os.path.join(app.config['UPLOAD_FOLDER'], 'images', filename))
+                    game.image_path = f'images/{filename}'
+            
+            # Обработка файла gameid
+            if 'gameid_file' in request.files:
+                gameid_file = request.files['gameid_file']
+                if gameid_file and gameid_file.filename:
+                    # Создаем директорию gameid в корне проекта
+                    gameid_path = os.path.join(app.config['BASE_DIR'], app.config['GAMEID_FOLDER'])
+                    os.makedirs(gameid_path, exist_ok=True)
+                    
+                    # Сохраняем файл с именем game_id
+                    filename = f"{game.game_id}.zip"
+                    file_path = os.path.join(gameid_path, filename)
+                    gameid_file.save(file_path)
+                    game.file_path = file_path
+                    
+                    print(f"File saved to: {file_path}")  # Для отладки
+            
+            db.session.commit()
+            flash('Game updated successfully!', 'success')
+            return redirect(url_for('admin_games'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating game: {str(e)}', 'error')
+            print(f"Error: {str(e)}")  # Для отладки
     
     return render_template('admin/edit_game.html', game=game)
 

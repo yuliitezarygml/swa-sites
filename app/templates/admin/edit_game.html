@@ -59,6 +59,20 @@
             </div>
         </div>
 
+        <div class="form-group">
+            <label>Game File (GameID):</label>
+            <div class="file-input-container">
+                <input type="file" name="gameid_file" id="gameidFile" accept=".zip">
+                <label for="gameidFile" class="file-input-label">
+                    <i class="fas fa-upload"></i> Upload GameID File
+                </label>
+                <span id="gameidFileName">No file chosen</span>
+            </div>
+            {% if game.file_path %}
+                <p class="current-file">Current file: {{ game.file_path }}</p>
+            {% endif %}
+        </div>
+
         <div class="form-actions">
             <button type="submit" class="button">Save Changes</button>
             <a href="{{ url_for('gamelist') }}" class="button button-secondary">Cancel</a>
@@ -177,6 +191,36 @@
     gap: 10px;
     margin-top: 20px;
 }
+
+.file-input-container {
+    margin-top: 10px;
+}
+
+.file-input-label {
+    background: #ff4500;
+    color: white;
+    padding: 8px 15px;
+    border-radius: 4px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.file-input-label:hover {
+    background: #cc3700;
+}
+
+#gameidFileName {
+    margin-left: 10px;
+    color: #888;
+}
+
+.current-file {
+    margin-top: 5px;
+    color: #888;
+    font-style: italic;
+}
 </style>
 
 <script>
@@ -198,5 +242,10 @@ function previewImage(input) {
         fileNameSpan.textContent = "No file chosen";
     }
 }
+
+document.getElementById('gameidFile').addEventListener('change', function(e) {
+    const fileName = e.target.files[0]?.name || 'No file chosen';
+    document.getElementById('gameidFileName').textContent = fileName;
+});
 </script>
 {% endblock %} 
