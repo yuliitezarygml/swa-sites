@@ -143,3 +143,11 @@ class Developer(db.Model):
     discord = db.Column(db.String(100))
     avatar = db.Column(db.String(500))
     description = db.Column(db.Text) 
+
+class FileComment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    file_path = db.Column(db.String(500), nullable=False)
+    comment = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user = db.relationship('User', backref='file_comments') 
