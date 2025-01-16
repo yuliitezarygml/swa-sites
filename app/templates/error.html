@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Ошибка{% endblock %}
+
+{% block content %}
+<div class="error-container">
+    <h1>Ошибка</h1>
+    <h2>Что-то пошло не так</h2>
+    <p>{{ error }}</p>
+    <a href="{{ url_for('home') }}" class="button">Вернуться на главную</a>
+</div>
+
+<style>
+.error-container {
+    text-align: center;
+    padding: 50px 20px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.error-container h1 {
+    font-size: 6em;
+    color: #ff4500;
+    margin: 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.error-container h2 {
+    font-size: 2em;
+    color: #fff;
+    margin: 10px 0 20px;
+}
+
+.error-container p {
+    color: #888;
+    margin-bottom: 30px;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    background: #ff4500;
+    color: white;
+    text-decoration: none;
+    border-radius: 5px;
+    transition: all 0.3s ease;
+}
+
+.button:hover {
+    background: #ff5722;
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %} 

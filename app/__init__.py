@@ -8,6 +8,7 @@ import json
 from werkzeug.security import generate_password_hash
 import logging
 from logging.handlers import RotatingFileHandler
+from datetime import timedelta
 
 # Создаем экземпляр Flask
 app = Flask(__name__)
@@ -15,6 +16,9 @@ app.config.from_object(Config)
 app.config['SECRET_KEY'] = 'your-secret-key'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
+app.config['SESSION_COOKIE_HTTPONLY'] = True
 
 # Создаем экземпляр SQLAlchemy
 db = SQLAlchemy(app)
@@ -54,10 +58,16 @@ if not app.debug:
     if not os.path.exists('logs'):
         os.mkdir('logs')
     file_handler = RotatingFileHandler('logs/swa_game_service.log', maxBytes=10240, backupCount=10)
-    file_handler.setFormatter(logging.Formatter(
-        '%(asctime)s %(levelname)s: %(message)s [in %(pathname)s:%(lineno)d]'
-    ))
-    file_handler.setLevel(logging.INFO)
-    app.logger.addHandler(file_handler)
+    formatter = logging.Formatter(
+        '%(asctime)s [%(levelname)s] %(message)s [in %(pathname)s:%(lineno)d]'
+    )
+    file_handler.setFormatter(formatter)
     app.logger.setLevel(logging.INFO)
     app.logger.info('SWA Game Service startup') 
+
+if not app.debug:
+    file_handler = RotatingFileHandler('logs/app.log', maxBytes=10240, backupCount=10)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s %(levelname)s: %(message)s'
+    ))
+    app.logger.addHandler(file_handler) 

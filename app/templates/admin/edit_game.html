@@ -1,83 +1,220 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="card">
+<div class="edit-container">
     <h1>Edit Game</h1>
     
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-    
     <form method="POST">
-        <div class="form-group">
-            <label>Game ID:</label>
-            <input type="text" name="game_id" value="{{ game.game_id }}" required>
-        </div>
-        
         <div class="form-group">
             <label>Name:</label>
             <input type="text" name="name" value="{{ game.name }}" required>
         </div>
         
         <div class="form-group">
-            <label>DLC IDs (one per line):</label>
-            <textarea name="dlc[]" rows="5">{% if game.dlc %}{{ '\n'.join(json.loads(game.dlc)) }}{% endif %}</textarea>
+            <label>Developer:</label>
+            <input type="text" name="developer" value="{{ game.developer }}">
         </div>
         
-        <button type="submit" class="button">Save Changes</button>
-        <a href="{{ url_for('admin_games') }}" class="button button-secondary">Cancel</a>
+        <div class="form-group">
+            <label>Release Date:</label>
+            <input type="text" name="release_date" value="{{ game.release_date }}">
+        </div>
+        
+        <div class="form-group">
+            <label>Image:</label>
+            <div class="image-selection">
+                <select name="image_path" id="imageSelect" class="image-select">
+                    <option value="custom_url" {% if game.path and game.path not in available_images %}selected{% endif %}>Custom URL</option>
+                    {% for image in available_images %}
+                        <option value="{{ image }}" {% if game.path == image %}selected{% endif %}>
+                            {{ image.split('/')[-1] }}
+                        </option>
+                    {% endfor %}
+                </select>
+                
+                <div id="customUrlInput" class="custom-url-input" {% if game.path in available_images %}style="display: none;"{% endif %}>
+                    <input type="text" name="image_url" value="{{ game.path if game.path not in available_images else '' }}" placeholder="Enter custom URL">
+                </div>
+                
+                <div id="imagePreview" class="image-preview">
+                    {% if game.path %}
+                        <img src="{{ game.path }}" alt="Game image">
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Platforms:</label>
+            <div class="checkbox-group">
+                <label>
+                    <input type="checkbox" name="windows" {% if game.windows %}checked{% endif %}> Windows
+                </label>
+                <label>
+                    <input type="checkbox" name="mac" {% if game.mac %}checked{% endif %}> Mac
+                </label>
+                <label>
+                    <input type="checkbox" name="linux" {% if game.linux %}checked{% endif %}> Linux
+                </label>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Access Type:</label>
+            <select name="access">
+                <option value="free" {% if game.access_type == 'free' %}selected{% endif %}>Free</option>
+                <option value="paid" {% if game.access_type == 'paid' %}selected{% endif %}>Paid</option>
+                <option value="subscription" {% if game.access_type == 'subscription' %}selected{% endif %}>Subscription</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>DRM Notice:</label>
+            <textarea name="drm_notice">{{ game.drm_notice }}</textarea>
+        </div>
+        
+        <div class="form-group">
+            <label>DLC IDs (one per line):</label>
+            <textarea name="dlc">{{ game.dlc | replace('"', '') if game.dlc else '' }}</textarea>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="save-btn">Save Changes</button>
+            <a href="{{ url_for('admin_games') }}" class="cancel-btn">Cancel</a>
+        </div>
     </form>
 </div>
 
 <style>
-    .form-group {
-        margin-bottom: 15px;
-    }
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-    }
-    .form-group input[type="text"],
-    .form-group textarea {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-    .button {
-        display: inline-block;
-        padding: 10px 15px;
-        background: #007bff;
-        color: white;
-        text-decoration: none;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-right: 10px;
-    }
-    .button-secondary {
-        background: #6c757d;
-    }
-    .alert {
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 4px;
-    }
-    .alert-success {
-        background-color: #d4edda;
-        border-color: #c3e6cb;
-        color: #155724;
-    }
-    .alert-error {
-        background-color: #f8d7da;
-        border-color: #f5c6cb;
-        color: #721c24;
-    }
+.edit-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.image-selection {
+    margin-top: 10px;
+}
+
+.image-select {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    background: #2a2a2a;
+    color: #fff;
+    border: 1px solid #444;
+    border-radius: 4px;
+}
+
+.custom-url-input {
+    margin-top: 10px;
+}
+
+.image-preview {
+    margin-top: 15px;
+    max-width: 300px;
+    border: 1px solid #444;
+    padding: 5px;
+    border-radius: 4px;
+}
+
+.image-preview img {
+    max-width: 100%;
+    height: auto;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.form-group input[type="text"],
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #444;
+    background: #2a2a2a;
+    color: #fff;
+    border-radius: 4px;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 20px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.form-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.save-btn, .cancel-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.save-btn {
+    background: #ff4500;
+    color: white;
+}
+
+.cancel-btn {
+    background: #666;
+    color: white;
+}
+
+.save-btn:hover {
+    background: #ff5722;
+}
+
+.cancel-btn:hover {
+    background: #777;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const imageSelect = document.getElementById('imageSelect');
+    const customUrlInput = document.getElementById('customUrlInput');
+    const imagePreview = document.getElementById('imagePreview');
+    
+    // Функция обновления предпросмотра
+    function updatePreview(src) {
+        imagePreview.innerHTML = src ? `<img src="${src}" alt="Game image">` : '';
+    }
+    
+    // Обработчик изменения выбора изображения
+    imageSelect.addEventListener('change', function() {
+        if (this.value === 'custom_url') {
+            customUrlInput.style.display = 'block';
+            updatePreview(customUrlInput.querySelector('input').value);
+        } else {
+            customUrlInput.style.display = 'none';
+            updatePreview(this.value);
+        }
+    });
+    
+    // Обработчик изменения пользовательского URL
+    customUrlInput.querySelector('input').addEventListener('input', function() {
+        updatePreview(this.value);
+    });
+});
+</script>
 {% endblock %} 

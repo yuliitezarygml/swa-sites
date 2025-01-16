@@ -225,13 +225,17 @@
             <div class="nav-links">
                 <a href="{{ url_for('home') }}" {% if request.endpoint == 'home' %}class="active"{% endif %}>Home</a>
                 <a href="{{ url_for('gamelist') }}" {% if request.endpoint == 'gamelist' %}class="active"{% endif %}>Game List</a>
-                <a href="{{ url_for('admin_games') }}" {% if request.endpoint == 'admin_games' %}class="active"{% endif %}>Admin Panel</a>
-                <a href="{{ url_for('file_browser') }}" {% if request.endpoint == 'file_browser' %}class="active"{% endif %}>File Browser</a>
+                {% if current_user.is_authenticated and current_user.is_admin %}
+                    <a href="{{ url_for('admin_games') }}" {% if request.endpoint == 'admin_games' %}class="active"{% endif %}>Admin Panel</a>
+                    <a href="{{ url_for('file_browser') }}" {% if request.endpoint == 'file_browser' %}class="active"{% endif %}>File Browser</a>
+                {% endif %}
             </div>
             <div class="nav-auth">
                 {% if current_user.is_authenticated %}
-                <span class="username">{{ current_user.username }}</span>
-                <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                    <span class="username">{{ current_user.username }}</span>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="login-btn">Login</a>
                 {% endif %}
             </div>
         </div>

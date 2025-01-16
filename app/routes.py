@@ -11,6 +11,9 @@ from flask_login import login_user, logout_user, login_required, current_user
 from functools import wraps
 from pathlib import Path
 from flask_caching import Cache
+from urllib.parse import urlparse
+from sqlalchemy import or_
+from werkzeug.security import check_password_hash
 
 cache = Cache(app, config={'CACHE_TYPE': 'simple'})
 
@@ -24,25 +27,37 @@ def admin_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not current_user.is_authenticated or not current_user.is_admin:
-            abort(403)
+            flash('У вас нет прав для доступа к этой странице.', 'error')
+            return redirect(url_for('login'))
         return f(*args, **kwargs)
     return decorated_function
 
 # Админ-панель для управления играми
-@app.route('/admin/games', methods=['GET'])
+@app.route('/admin/games')
 @admin_required
 def admin_games():
+    # Получаем параметр поиска
+    search = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
-    per_page = 10  # Количество игр на странице
+    
+    # Формируем запрос с поиском по имени и ID
+    query = Game.query
+    if search:
+        query = query.filter(
+            or_(
+                Game.name.ilike(f'%{search}%'),  # Поиск по имени
+                Game.game_id.ilike(f'%{search}%')  # Поиск по ID
+            )
+        )
     
     # Получаем игры с пагинацией
-    games = Game.query.paginate(page=page, per_page=per_page, error_out=False)
-    launcher_games = LauncherGame.query.all()
+    games = query.order_by(Game.name).paginate(
+        page=page,
+        per_page=50,
+        error_out=False
+    )
     
-    return render_template('admin/games.html', 
-                         games=games,
-                         launcher_games=launcher_games,
-                         json=json)
+    return render_template('admin/games.html', games=games, search=search)
 
 # Добавление новой игры
 @app.route('/admin/games/add', methods=['GET', 'POST'])
@@ -51,20 +66,48 @@ def add_game():
     if request.method == 'POST':
         game_id = request.form['game_id']
         name = request.form['name']
-        dlc = request.form.getlist('dlc[]')
+        developer = request.form['developer']
+        release_date = request.form['release_date']
+        access = request.form['access']
+        drm_notice = request.form['drm_notice']
+        dlc = request.form.get('dlc', '').split('\n')
+        dlc = [d.strip() for d in dlc if d.strip()]
+
+        # Обработка изображения
+        image_path = None
+        image_type = request.form.get('image_type')
         
-        # Проверяем, существует ли игра с таким game_id
-        existing_game = Game.query.filter_by(game_id=game_id).first()
-        if existing_game:
-            flash(f'Game with ID {game_id} already exists!', 'error')
-            return redirect(url_for('add_game'))
+        if image_type == 'url':
+            image_path = request.form.get('image_url')
+        elif image_type == 'file':
+            image_file = request.files.get('image_file')
+            if image_file and image_file.filename:
+                # Создаем папку для изображений, если её нет
+                images_folder = os.path.join(app.static_folder, 'game_images')
+                os.makedirs(images_folder, exist_ok=True)
+                
+                # Генерируем безопасное имя файла
+                filename = secure_filename(f"{game_id}_{image_file.filename}")
+                file_path = os.path.join(images_folder, filename)
+                
+                # Сохраняем файл
+                image_file.save(file_path)
+                
+                # Формируем путь для доступа через URL
+                image_path = url_for('static', filename=f'game_images/{filename}')
+
+        # Обработка платформ
+        platforms = []
+        if 'windows' in request.form: platforms.append('windows')
+        if 'mac' in request.form: platforms.append('mac')
+        if 'linux' in request.form: platforms.append('linux')
         
         try:
             # Сохраняем файл игры, если он был загружен
             game_file = request.files.get('game_file')
             file_path = None
             if game_file and game_file.filename:
-                filename = f"{game_id}.zip"
+                filename = secure_filename(f"{game_id}.zip")
                 file_path = os.path.join(app.config['GAMEID_FOLDER'], filename)
                 os.makedirs(app.config['GAMEID_FOLDER'], exist_ok=True)
                 game_file.save(file_path)
@@ -73,8 +116,16 @@ def add_game():
             game = Game(
                 game_id=game_id,
                 name=name,
+                developer=developer,
+                release_date=release_date,
+                path=image_path,
                 dlc=json.dumps(dlc) if dlc else None,
-                file_path=file_path
+                windows='windows' in platforms,
+                mac='mac' in platforms,
+                linux='linux' in platforms,
+                file_path=file_path,
+                access_type=access,
+                drm_notice=drm_notice
             )
             
             db.session.add(game)
@@ -156,20 +207,39 @@ def get_game_files(game_id):
         abort(404)
 
 @app.route('/gamelist')
-def gamelist():
-    page = request.args.get('page', 1, type=int)
-    per_page = 6  # Количество игр на странице
+@app.route('/gamelist/<int:page>')
+def gamelist(page=1):
+    # Получаем параметр поиска из URL
+    search_query = request.args.get('search', '').strip()
     
-    # Получаем все игры с пагинацией
-    games = Game.query.paginate(page=page, per_page=per_page, error_out=False)
+    # Формируем базовый запрос
+    query = Game.query
     
-    total_games = Game.query.count()
+    # Если есть поисковый запрос, фильтруем игры по имени ИЛИ по ID
+    if search_query:
+        query = query.filter(
+            db.or_(
+                Game.name.ilike(f'%{search_query}%'),
+                Game.game_id.ilike(f'%{search_query}%')
+            )
+        )
     
-    return render_template('gamelist.html', 
-                         games=games,
-                         total_games=total_games,
-                         current_page=page,
-                         json=json)
+    # Сортируем по имени и добавляем пагинацию
+    games = query.order_by(Game.name.asc()).paginate(
+        page=page,
+        per_page=50,
+        error_out=False
+    )
+    
+    # Получаем общее количество найденных игр
+    total_games = query.count()
+    
+    return render_template(
+        'gamelist.html',
+        games=games,
+        total_games=total_games,
+        search_query=search_query
+    )
 
 @app.before_request
 def before_request():
@@ -252,18 +322,33 @@ def file_browser():
         return redirect(url_for('file_browser'))
 
 # Маршрут для удаления игры
-@app.route('/admin/games/delete/<int:id>')
+@app.route('/admin/games/delete/<game_id>', methods=['POST'])
 @admin_required
-def delete_game(id):
-    game = Game.query.get_or_404(id)
+def delete_game(game_id):
     try:
+        game = Game.query.filter_by(game_id=game_id).first()
+        
+        if not game:
+            return jsonify({'success': False, 'error': 'Game not found'}), 404
+        
+        # Удаляем файл игры, если он существует
+        if game.file_path and os.path.exists(game.file_path):
+            try:
+                os.remove(game.file_path)
+            except OSError as e:
+                app.logger.error(f'Error deleting game file: {str(e)}')
+        
+        # Удаляем запись из базы данных
         db.session.delete(game)
         db.session.commit()
-        flash('Game deleted successfully!', 'success')
+        
+        flash('Игра успешно удалена', 'success')
+        return jsonify({'success': True})
+        
     except Exception as e:
         db.session.rollback()
-        flash(f'Error deleting game: {str(e)}', 'error')
-    return redirect(url_for('admin_games'))
+        app.logger.error(f'Error deleting game: {str(e)}')
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Маршрут для удаления файла
 @app.route('/admin/files/delete/<path:filename>')
@@ -285,46 +370,96 @@ def delete_file(filename):
 def page_not_found(e):
     return render_template('404.html'), 404 
 
-@app.route('/admin/games/edit/<int:id>', methods=['GET', 'POST'])
+@app.route('/admin/games/edit/<game_id>', methods=['GET', 'POST'])
 @admin_required
-def edit_game(id):
-    game = Game.query.get_or_404(id)
+def edit_game(game_id):
+    game = Game.query.filter_by(game_id=game_id).first_or_404()
+    
+    # Получаем список всех изображений из директории
+    images_dir = os.path.join('app', 'static', 'images')
+    available_images = []
+    if os.path.exists(images_dir):
+        available_images = [
+            f'/static/images/{f}' for f in os.listdir(images_dir)
+            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.gif'))
+        ]
+    
     if request.method == 'POST':
-        game.game_id = request.form['game_id']
         game.name = request.form['name']
-        game.dlc = json.dumps(request.form.getlist('dlc[]'))
+        game.developer = request.form['developer']
+        game.release_date = request.form['release_date']
+        
+        # Обработка выбора изображения
+        selected_image = request.form.get('image_path')
+        if selected_image and selected_image != 'custom_url':
+            game.path = selected_image
+        else:
+            custom_url = request.form.get('image_url')
+            if custom_url:
+                game.path = custom_url
+
+        game.windows = 'windows' in request.form
+        game.mac = 'mac' in request.form
+        game.linux = 'linux' in request.form
+        game.access_type = request.form['access']
+        game.drm_notice = request.form['drm_notice']
+        
+        dlc_text = request.form.get('dlc', '')
+        if dlc_text:
+            game.dlc = json.dumps([d.strip() for d in dlc_text.split('\n') if d.strip()])
+        else:
+            game.dlc = None
+
         try:
             db.session.commit()
-            flash('Game updated successfully!', 'success')
+            flash('Игра успешно обновлена!', 'success')
             return redirect(url_for('admin_games'))
         except Exception as e:
             db.session.rollback()
-            flash(f'Error updating game: {str(e)}', 'error')
-    
-    return render_template('admin/edit_game.html', game=game, json=json)
+            flash(f'Ошибка при обновлении игры: {str(e)}', 'error')
+
+    return render_template('admin/edit_game.html', 
+                         game=game, 
+                         available_images=available_images)
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
-    
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.verify_user(username, password)
         
-        if user:
-            login_user(user)
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        users = User.load_users()
+        user_data = users.get(username)
+        
+        if user_data and check_password_hash(user_data['password_hash'], password):
+            user = User(username)
+            user.is_admin = user_data.get('is_admin', False)  # Явно устанавливаем права админа
+            login_user(user, remember=True)
+            
+            # Логируем успешный вход
+            app.logger.info(f'Successful login for user: {username}')
+            
             next_page = request.args.get('next')
-            return redirect(next_page or url_for('home'))
-        flash('Invalid username or password', 'error')
+            if not next_page or urlparse(next_page).netloc != '':
+                next_page = url_for('home')
+                
+            flash('Вы успешно вошли в систему!', 'success')
+            return redirect(next_page)
+        else:
+            flash('Неверное имя пользователя или пароль', 'error')
+            app.logger.warning(f'Failed login attempt for user: {username}')
+            
     return render_template('login.html')
 
 @app.route('/logout')
 @login_required
 def logout():
     logout_user()
-    return redirect(url_for('home')) 
+    flash('Вы вышли из системы', 'info')
+    return redirect(url_for('home'))
 
 @app.route('/register', methods=['GET', 'POST'])
 @admin_required  # Только админ может создавать новых пользователей
@@ -461,9 +596,26 @@ def edit_file_content(filepath):
 
 @app.errorhandler(500)
 def internal_error(error):
+    app.logger.error(f'Серверная ошибка: {error}')
     db.session.rollback()
     return render_template('500.html'), 500
 
 @app.errorhandler(403)
 def forbidden_error(error):
     return render_template('403.html'), 403 
+
+@app.errorhandler(Exception)
+def handle_error(error):
+    app.logger.error(f'Необработанная ошибка: {str(error)}')
+    return render_template('error.html', error=error), 500 
+
+@cache.memoize(timeout=300)
+def get_game_stats():
+    return {
+        'total_games': Game.query.count(),
+        'active_users': ActiveUsers.get_active_count()
+    } 
+
+@cache.memoize(timeout=300)
+def get_game_details(game_id):
+    return Game.query.filter_by(game_id=game_id).first() 

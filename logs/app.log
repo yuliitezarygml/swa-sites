@@ -1,0 +1,5 @@
+2025-01-16 10:33:34,615 ERROR: Необработанная ошибка: property 'is_admin' of 'User' object has no setter
+2025-01-16 10:34:07,810 ERROR: Необработанная ошибка: type object 'User' has no attribute 'verify_user'
+2025-01-16 10:34:13,333 ERROR: Необработанная ошибка: type object 'User' has no attribute 'verify_user'
+2025-01-16 10:48:19,292 ERROR: Необработанная ошибка: Could not build url for endpoint 'edit_game' with values ['game_id']. Did you forget to specify values ['id']?
+2025-01-16 11:37:44,896 INFO: Successful login for user: admin

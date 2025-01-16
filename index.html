@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursor AI Premium KeyGen</title>
+    <style>
+        /* Font imports */
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Audiowide&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        /* Reset ve temel stiller */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            color: #f0f0f0;
+            min-height: 100vh;
+            background: radial-gradient(circle, #0a0a0a, #060606);
+            padding: 2rem;
+            display: grid;
+            place-items: center;
+            gap: 2rem;
+        }
+
+        /* Container styles */
+        .container {
+            background-color: #1c1c1c;
+            border-radius: 2rem;
+            padding: 3rem;
+            width: min(90%, 900px);
+            margin: 0 auto;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+            transition: transform 0.5s ease, box-shadow 0.5s;
+        }
+
+        .container:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 30px 60px rgba(0, 0, 0, 0.7);
+        }
+
+        /* Logo styles */
+        .logo {
+            width: 220px;
+            margin: 0 auto 2rem;
+            display: block;
+            animation: pulse 2.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.15); }
+        }
+
+        /* Typography */
+        h1, h2 {
+            color: #00e5ff;
+            font-family: 'Audiowide', cursive;
+            text-align: center;
+            margin-bottom: 2rem;
+            text-shadow: 0 0 25px rgba(0, 229, 255, 0.8);
+        }
+
+        h1 { font-size: 3rem; }
+        h2 { font-size: 2rem; }
+
+        /* Button styles */
+        button {
+            background-image: linear-gradient(to right, #00c6ff, #0072ff);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: block;
+            margin: 2rem auto;
+            box-shadow: 0 12px 24px rgba(0, 114, 255, 0.3);
+        }
+
+        button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 15px 30px rgba(0, 114, 255, 0.4);
+        }
+
+        /* Code display */
+        pre, code {
+            background-color: #1a1a1a;
+            border: 1px solid #2b2b2b;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            font-family: 'VT323', monospace;
+            font-size: 1rem;
+            color: #f0f0f0;
+            overflow-x: auto;
+            width: 100%;
+        }
+
+        /* Instructions list */
+        .instructions {
+            text-align: left;
+        }
+
+        .instructions ol {
+            list-style: none;
+            counter-reset: inst;
+        }
+
+        .instructions li {
+            margin-bottom: 1.5rem;
+            padding-left: 3rem;
+            position: relative;
+            line-height: 1.6;
+        }
+
+        .instructions ol > li::before {
+            counter-increment: inst;
+            content: counter(inst);
+            position: absolute;
+            left: 0;
+            top: 0;
+            background-image: linear-gradient(to right, #00c6ff, #0072ff);
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Tooltip styles */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip .tooltiptext {
+            visibility: hidden;
+            background-color: #444;
+            color: #fff;
+            text-align: center;
+            border-radius: 6px;
+            padding: 0.5rem 1rem;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            white-space: nowrap;
+        }
+
+        .tooltip:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+            }
+
+            .container {
+                padding: 1.5rem;
+            }
+
+            h1 { font-size: 2rem; }
+            h2 { font-size: 1.5rem; }
+        }
+    </style>
+    <script>
+        function generateCustomRandomKey() {
+            const template = "ee7d0359-5eb3-4d02-a36b-1dc961afb783";
+            const characters = "abcdefghijklmnopqrstuvwxyz0123456789";
+            let randomKey = "";
+
+            for (let i = 0; i < template.length; i++) {
+                if (characters.includes(template[i])) {
+                    randomKey += characters.charAt(Math.floor(Math.random() * characters.length));
+                } else {
+                    randomKey += template[i];
+                }
+            }
+
+            const config = {
+                "telemetry.machineId": randomKey,
+                "telemetry.macMachineId": randomKey,
+                "telemetry.devDeviceId": randomKey,
+                "telemetry.sqmId": randomKey,
+                "lastModified": new Date().toISOString(),
+                "version": "1.0.1"
+            };
+
+            document.getElementById("output").innerText = JSON.stringify(config, null, 4);
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSGX1AkqEUYQm-A2ThTX9e0ta27K7TifqpIr1SRH7fTsvVHc9z-IrbjRXw&s=10" alt="Logo" class="logo">
+        <h1>Cursor AI Premium KeyGen</h1>
+        <button onclick="generateCustomRandomKey()">Anahtar Oluştur</button>
+        <pre id="output"></pre>
+    </div>
+    <div class="instructions container">
+        <h2>Kurulum Talimatları</h2>
+        <ol>
+            <li>Cursor AI ücretsiz deneme sürümünü kurun, oturumunuzu açık tutun.</li>
+            <li>Cursor'u tamamen kapatın.</li>
+            <li>Yapılandırma dosyasının bulunduğu konuma gidin:
+                <ul>
+                    <li>Windows: <span class="tooltip"><code>%APPDATA%\Cursor\User\globalStorage\storage.json</code><span class="tooltiptext">Windows için konum</span></span></li>
+                    <li>macOS: <span class="tooltip"><code>~/Library/Application Support/Cursor/User/globalStorage/storage.json</code><span class="tooltiptext">macOS için konum</span></span></li>
+                    <li>Linux: <span class="tooltip"><code>~/.config/Cursor/User/globalStorage/storage.json</code><span class="tooltiptext">Linux için konum</span></span></li>
+                </ul>
+            </li>
+            <li><code>storage.json</code> dosyasının bir yedeğini oluşturun.</li>
+            <li><code>storage.json</code> dosyasını düzenleyin ve aşağıdaki alanları yeni anahtarınızla güncelleyin:</li>
+        </ol>
+        <pre><code>{
+    "telemetry.machineId": "yeni-anahtar",
+    "telemetry.macMachineId": "yeni-anahtar",
+    "telemetry.devDeviceId": "yeni-anahtar",
+    "telemetry.sqmId": "yeni-anahtar",
+    "lastModified": "2024-01-01T00:00:00.000Z",
+    "version": "1.0.1"
+}</code></pre>
+        <ol start="6">
+            <li>Dosyayı kaydedin ve Cursor'u yeniden başlatın.</li>
+        </ol>
+    </div>
+</body>
+</html>

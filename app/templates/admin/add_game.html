@@ -4,16 +4,6 @@
 <div class="card">
     <h1>Add New Game</h1>
     
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    {% endwith %}
-    
     <form method="POST" enctype="multipart/form-data">
         <div class="form-group">
             <label>Game ID:</label>
@@ -26,8 +16,60 @@
         </div>
         
         <div class="form-group">
+            <label>Developer:</label>
+            <input type="text" name="developer">
+        </div>
+        
+        <div class="form-group">
+            <label>Release Date:</label>
+            <input type="text" name="release_date" placeholder="e.g. 1 Nov, 2000">
+        </div>
+        
+        <div class="form-group">
+            <label>Image:</label>
+            <div class="image-input-group">
+                <div class="input-option">
+                    <label>
+                        <input type="radio" name="image_type" value="url" checked> URL
+                    </label>
+                    <input type="text" name="image_url" id="image_url" placeholder="Enter image URL">
+                </div>
+                <div class="input-option">
+                    <label>
+                        <input type="radio" name="image_type" value="file"> Local File
+                    </label>
+                    <input type="file" name="image_file" id="image_file" accept="image/*" disabled>
+                </div>
+            </div>
+            <div id="image_preview" class="image-preview"></div>
+        </div>
+        
+        <div class="form-group">
+            <label>Platforms:</label>
+            <div class="checkbox-group">
+                <label><input type="checkbox" name="windows"> Windows</label>
+                <label><input type="checkbox" name="mac"> Mac</label>
+                <label><input type="checkbox" name="linux"> Linux</label>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>Access Type:</label>
+            <select name="access">
+                <option value="free">Free</option>
+                <option value="paid">Paid</option>
+                <option value="subscription">Subscription</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label>DRM Notice:</label>
+            <textarea name="drm_notice"></textarea>
+        </div>
+        
+        <div class="form-group">
             <label>DLC IDs (one per line):</label>
-            <textarea name="dlc[]" rows="5"></textarea>
+            <textarea name="dlc" placeholder="Enter DLC IDs, one per line"></textarea>
         </div>
         
         <div class="form-group">
@@ -35,54 +77,153 @@
             <input type="file" name="game_file" accept=".zip">
         </div>
         
-        <button type="submit" class="button">Add Game</button>
-        <a href="{{ url_for('admin_games') }}" class="button">Cancel</a>
+        <div class="form-actions">
+            <button type="submit" class="button">Add Game</button>
+            <a href="{{ url_for('admin_games') }}" class="button button-secondary">Cancel</a>
+        </div>
     </form>
 </div>
 
 <style>
-    .form-group {
-        margin-bottom: 15px;
-    }
-    .form-group label {
-        display: block;
-        margin-bottom: 5px;
-    }
-    .form-group input[type="text"],
-    .form-group textarea {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-    }
-    .alert {
-        padding: 10px;
-        margin-bottom: 15px;
-        border-radius: 4px;
-    }
-    .alert-error {
-        background-color: #f8d7da;
-        border-color: #f5c6cb;
-        color: #721c24;
-    }
-    .alert-success {
-        background-color: #d4edda;
-        border-color: #c3e6cb;
-        color: #155724;
-    }
-    .button {
-        display: inline-block;
-        padding: 10px 15px;
-        background: #007bff;
-        color: white;
-        text-decoration: none;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-right: 10px;
-    }
-    .button:hover {
-        background: #0056b3;
-    }
+.card {
+    background: #2a2a2a;
+    padding: 20px;
+    border-radius: 8px;
+    max-width: 800px;
+    margin: 20px auto;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    color: #fff;
+}
+
+.form-group input[type="text"],
+.form-group input[type="file"],
+.form-group textarea,
+.form-group select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #444;
+    background: #333;
+    color: #fff;
+    border-radius: 4px;
+}
+
+.checkbox-group {
+    display: flex;
+    gap: 20px;
+}
+
+.checkbox-group label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.form-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+}
+
+.button {
+    background: #ff4500;
+    color: white;
+}
+
+.button-secondary {
+    background: #666;
+}
+
+.button:hover {
+    opacity: 0.9;
+}
+
+.image-input-group {
+    margin-top: 10px;
+}
+
+.input-option {
+    margin-bottom: 10px;
+}
+
+.input-option label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 5px;
+}
+
+.image-preview {
+    margin-top: 10px;
+    max-width: 300px;
+    max-height: 200px;
+    overflow: hidden;
+    border-radius: 4px;
+    display: none;
+}
+
+.image-preview img {
+    width: 100%;
+    height: auto;
+}
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const urlInput = document.getElementById('image_url');
+    const fileInput = document.getElementById('image_file');
+    const imagePreview = document.getElementById('image_preview');
+    const radioButtons = document.getElementsByName('image_type');
+
+    // Обработка переключения типа ввода изображения
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'url') {
+                urlInput.disabled = false;
+                fileInput.disabled = true;
+            } else {
+                urlInput.disabled = true;
+                fileInput.disabled = false;
+            }
+        });
+    });
+
+    // Предпросмотр изображения по URL
+    urlInput.addEventListener('input', function() {
+        if (this.value) {
+            imagePreview.innerHTML = `<img src="${this.value}" onerror="this.style.display='none'">`;
+            imagePreview.style.display = 'block';
+        } else {
+            imagePreview.style.display = 'none';
+        }
+    });
+
+    // Предпросмотр загруженного файла
+    fileInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                imagePreview.innerHTML = `<img src="${e.target.result}">`;
+                imagePreview.style.display = 'block';
+            };
+            reader.readAsDataURL(this.files[0]);
+        }
+    });
+});
+</script>
 {% endblock %} 

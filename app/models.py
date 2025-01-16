@@ -9,17 +9,22 @@ class Game(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     game_id = db.Column(db.String(20), unique=True, nullable=False)
-    release_date = db.Column(db.String(50))
     developer = db.Column(db.String(100))
-    path = db.Column(db.String(200))
+    release_date = db.Column(db.String(50))
+    path = db.Column(db.String(200))  # для URL изображения
     dlc = db.Column(db.Text)
-    # Добавляем поля для систем
     windows = db.Column(db.Boolean, default=False)
     mac = db.Column(db.Boolean, default=False)
     linux = db.Column(db.Boolean, default=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     file_path = db.Column(db.String(500))
-    description = db.Column(db.Text)
+    access_type = db.Column(db.String(20), default='paid')  # free, paid, subscription
+    drm_notice = db.Column(db.Text)
+    
+    __table_args__ = (
+        db.Index('idx_game_id', 'game_id'),
+        db.Index('idx_name', 'name'),
+    )
     
 class LauncherGame(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -46,32 +51,27 @@ class ActiveUsers(db.Model):
         cls.clean_inactive()
         return cls.query.count() 
 
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(120), nullable=False)
-    is_admin = db.Column(db.Boolean, default=False)  # Поле для проверки админа
-
-    def __init__(self, username, password_hash, is_admin=False):
-        self.id = username  # Используем username как id
+class User(UserMixin):
+    def __init__(self, username):
         self.username = username
-        self.password_hash = password_hash
-        self.is_admin = is_admin
-
-    @staticmethod
-    def get_user(username):
-        users = User.load_users()
+        self._is_admin = False  # Приватное свойство для хранения статуса админа
+        
+        # Проверяем права администратора при создании
+        users = self.load_users()
         user_data = users.get(username)
         if user_data:
-            return User(
-                username=username,
-                password_hash=user_data['password_hash'],
-                is_admin=user_data.get('is_admin', False)
-            )
-        return None
+            self._is_admin = user_data.get('is_admin', False)
 
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
+    def get_id(self):
+        return self.username
+
+    @staticmethod
+    def get_user(user_id):
+        users = User.load_users()
+        if user_id in users:
+            user = User(user_id)
+            return user
+        return None
 
     @staticmethod
     def load_users():
@@ -89,24 +89,13 @@ class User(UserMixin, db.Model):
         with open('instance/base.txt', 'w') as f:
             json.dump(users, f, indent=4)
 
-    @staticmethod
-    def create_user(username, password, is_admin=False):
-        users = User.load_users()
-        if username not in users:
-            users[username] = {
-                'password_hash': generate_password_hash(password),
-                'is_admin': is_admin
-            }
-            User.save_users(users)
-            return True
-        return False
+    @property
+    def is_admin(self):
+        return self._is_admin
 
-    @staticmethod
-    def verify_user(username, password):
-        user = User.get_user(username)
-        if user and user.check_password(password):
-            return user
-        return None 
+    @is_admin.setter
+    def is_admin(self, value):
+        self._is_admin = value
 
 class Statistics:
     @staticmethod
